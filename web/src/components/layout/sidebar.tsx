@@ -9,18 +9,30 @@ import {
   LayoutDashboard,
   LayoutTemplate,
   Zap,
+  UserCog,
+  Contact,
 } from 'lucide-react';
 
 const navItems = [
   {
-    label: 'Contacts',
-    href: '/contacts',
-    icon: Users,
+    label: 'Dashboard',
+    href: '/dashboard',
+    icon: LayoutDashboard,
   },
   {
-    label: 'Conversations',
+    label: 'Conversaciones',
     href: '/conversations',
     icon: MessageSquare,
+  },
+  {
+    label: 'CRM',
+    href: '/contacts',
+    icon: Contact,
+  },
+  {
+    label: 'Equipo',
+    href: '/team',
+    icon: Users,
   },
   {
     label: 'Plantillas',
@@ -33,7 +45,12 @@ const navItems = [
     icon: Zap,
   },
   {
-    label: 'Settings',
+    label: 'Automatizaciones',
+    href: '/automations',
+    icon: UserCog,
+  },
+  {
+    label: 'Configuración',
     href: '/settings',
     icon: Settings,
   },

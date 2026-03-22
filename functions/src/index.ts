@@ -33,3 +33,10 @@ export {
   updateConversationLabels,
   markConversationRead,
 } from './conversations';
+export { getTeam, inviteTeamMember, updateTeamMember, removeTeamMember } from './team';
+export {
+  getAutomations,
+  createAutomation,
+  updateAutomation,
+  deleteAutomation,
+} from './automations';

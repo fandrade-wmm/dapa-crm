@@ -292,3 +292,129 @@ export const conversationsApi = {
     return result.data;
   },
 };
+
+// ---------- Team ----------
+
+export interface TeamMember {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: 'admin' | 'agent';
+  permissions: {
+    conversations: boolean;
+    crm: boolean;
+    automations: boolean;
+    quickResponses: boolean;
+    settings: boolean;
+  };
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface InviteTeamMemberInput {
+  email: string;
+  displayName: string;
+  role: 'admin' | 'agent';
+  permissions?: Partial<TeamMember['permissions']>;
+}
+
+export type UpdateTeamMemberInput = Partial<
+  Pick<TeamMember, 'role' | 'permissions' | 'isActive'>
+> & { id: string };
+
+const getTeamFn = httpsCallable<Record<string, never>, TeamMember[]>(functions, 'getTeam');
+const inviteTeamMemberFn = httpsCallable<InviteTeamMemberInput, TeamMember>(
+  functions,
+  'inviteTeamMember'
+);
+const updateTeamMemberFn = httpsCallable<UpdateTeamMemberInput, TeamMember>(
+  functions,
+  'updateTeamMember'
+);
+const removeTeamMemberFn = httpsCallable<{ id: string }, { success: boolean }>(
+  functions,
+  'removeTeamMember'
+);
+
+export const teamApi = {
+  getAll: async (): Promise<TeamMember[]> => {
+    const result = await getTeamFn({});
+    return result.data;
+  },
+  invite: async (input: InviteTeamMemberInput): Promise<TeamMember> => {
+    const result = await inviteTeamMemberFn(input);
+    return result.data;
+  },
+  update: async (input: UpdateTeamMemberInput): Promise<TeamMember> => {
+    const result = await updateTeamMemberFn(input);
+    return result.data;
+  },
+  remove: async (id: string): Promise<void> => {
+    await removeTeamMemberFn({ id });
+  },
+};
+
+// ---------- Automations ----------
+
+export type AutomationTriggerType = 'message_received' | 'keyword_match' | 'time_based';
+export type AutomationActionType = 'send_message' | 'assign_agent' | 'add_label';
+
+export interface AutomationTrigger {
+  type: AutomationTriggerType;
+  conditions?: Record<string, unknown>;
+}
+
+export interface AutomationAction {
+  type: AutomationActionType;
+  params?: Record<string, unknown>;
+}
+
+export interface Automation {
+  id: string;
+  name: string;
+  description: string | null;
+  trigger: AutomationTrigger;
+  actions: AutomationAction[];
+  isActive: boolean;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateAutomationInput = Omit<Automation, 'id' | 'ownerId' | 'createdAt' | 'updatedAt'>;
+export type UpdateAutomationInput = Partial<CreateAutomationInput> & { id: string };
+
+const getAutomationsFn = httpsCallable<Record<string, never>, Automation[]>(
+  functions,
+  'getAutomations'
+);
+const createAutomationFn = httpsCallable<CreateAutomationInput, Automation>(
+  functions,
+  'createAutomation'
+);
+const updateAutomationFn = httpsCallable<UpdateAutomationInput, Automation>(
+  functions,
+  'updateAutomation'
+);
+const deleteAutomationFn = httpsCallable<{ id: string }, { success: boolean }>(
+  functions,
+  'deleteAutomation'
+);
+
+export const automationsApi = {
+  getAll: async (): Promise<Automation[]> => {
+    const result = await getAutomationsFn({});
+    return result.data;
+  },
+  create: async (input: CreateAutomationInput): Promise<Automation> => {
+    const result = await createAutomationFn(input);
+    return result.data;
+  },
+  update: async (input: UpdateAutomationInput): Promise<Automation> => {
+    const result = await updateAutomationFn(input);
+    return result.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await deleteAutomationFn({ id });
+  },
+};
