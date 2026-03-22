@@ -9,6 +9,8 @@ out/
 dist/
 build/
 lib/
+!web/src/lib/
+!functions/lib/
 
 # Environment files
 .env
