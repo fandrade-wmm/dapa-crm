@@ -28,13 +28,30 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isSuperAdmin();
-      allow update: if isOwner(userId) || isAdmin();
+      allow update: if
+        // Owners may only modify a limited set of non-privileged profile fields
+        (
+          isOwner(userId) &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(
+            ['displayName', 'phoneNumber', 'photoURL', 'updatedAt']
+          ) &&
+          request.resource.data.diff(resource.data).addedKeys().hasOnly(
+            ['displayName', 'phoneNumber', 'photoURL', 'updatedAt']
+          ) &&
+          request.resource.data.diff(resource.data).removedKeys().hasOnly(
+            ['displayName', 'phoneNumber', 'photoURL', 'updatedAt']
+          )
+        )
+        // Admins may update user documents (including role changes)
+        || isAdmin();
       allow delete: if isSuperAdmin();
     }
 
     // Contacts collection (CRM contacts)
     match /contacts/{contactId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
       allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
       allow update: if isAuthenticated() && (
         resource.data.ownerId == request.auth.uid || isAdmin()

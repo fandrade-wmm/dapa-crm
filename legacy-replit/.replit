@@ -30,7 +30,7 @@ timeoutMs = 20000
 [userenv.shared]
 ODOO_URL = "https://www.dapahome.ec"
 ODOO_DB = "dapahome.ec"
-ODOO_USERNAME = "fandradec@hotmail.com"
+ODOO_USERNAME = "<set-in-replit-secrets>"
 
 [nix]
 channel = "stable-25_05"
