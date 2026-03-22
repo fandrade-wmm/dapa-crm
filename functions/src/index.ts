@@ -11,3 +11,15 @@ export {
   updateLead,
   deleteLead,
 } from './leads';
+export {
+  getTemplates,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
+} from './templates';
+export {
+  getQuickResponses,
+  createQuickResponse,
+  updateQuickResponse,
+  deleteQuickResponse,
+} from './quickResponses';

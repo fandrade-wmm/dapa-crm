@@ -26,7 +26,7 @@ export function Header() {
         {user && (
           <div className="flex items-center gap-2 text-sm">
             <User className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">{user.name}</span>
+            <span className="text-muted-foreground">{user.displayName ?? user.email}</span>
           </div>
         )}
         <button
