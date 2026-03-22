@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getUserById } from '@/lib/user-service';
 import type { User } from '@/lib/types';
@@ -16,12 +16,14 @@ interface AuthContextValue {
   firebaseUser: FirebaseUser | null;
   user: User | null;
   loading: boolean;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   firebaseUser: null,
   user: null,
   loading: true,
+  signOut: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -50,8 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, []);
 
+  async function handleSignOut() {
+    await firebaseSignOut(auth);
+  }
+
   return (
-    <AuthContext.Provider value={{ firebaseUser, user, loading }}>
+    <AuthContext.Provider value={{ firebaseUser, user, loading, signOut: handleSignOut }}>
       {children}
     </AuthContext.Provider>
   );

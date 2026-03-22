@@ -1,18 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from '@/lib/auth-service';
 import { loginSchema, type LoginFormData } from '@/lib/validation';
+import { useAuth } from '@/context/auth-context';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { firebaseUser, loading } = useAuth();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
   });
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Redirect authenticated users away from login
+  useEffect(() => {
+    if (!loading && firebaseUser) {
+      router.replace('/dashboard');
+    }
+  }, [loading, firebaseUser, router]);
+
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -24,15 +34,15 @@ export default function LoginPage() {
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     try {
       await signIn(formData.email, formData.password);
-      router.push('/contacts');
+      router.push('/dashboard');
     } catch (err) {
       setError('Invalid email or password. Please try again.');
       console.error('Login error:', err);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   }
 
@@ -92,10 +102,10 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={submitting}
           className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
         >
-          {loading ? 'Signing in...' : 'Sign in'}
+          {submitting ? 'Signing in...' : 'Sign in'}
         </button>
       </form>
     </div>

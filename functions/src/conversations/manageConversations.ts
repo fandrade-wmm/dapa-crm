@@ -7,7 +7,7 @@ import { verifyAuth } from '../middleware/auth';
 // ---------- Schemas ----------
 
 const getConversationsSchema = z.object({
-  search: z.string().optional(),
+  search: z.string().nullish().transform((v) => v ?? undefined),
   channel: z.enum(['all', 'whatsapp', 'instagram']).default('all'),
   status: z.enum(['all', 'active', 'resolved']).default('all'),
   limit: z.number().int().positive().max(200).default(100),
@@ -136,7 +136,7 @@ export const getConversations = https.onCall<
     return results;
   } catch (err) {
     if (err instanceof https.HttpsError) throw err;
-    logger.error('Error fetching conversations:', err);
+    logger.error('Error fetching conversations:', { message: (err as Error).message, stack: (err as Error).stack });
     throw new https.HttpsError('internal', 'Failed to fetch conversations.');
   }
 });

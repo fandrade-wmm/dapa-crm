@@ -41,7 +41,7 @@ const firebase_admin_1 = require("../config/firebase-admin");
 const auth_1 = require("../middleware/auth");
 // ---------- Schemas ----------
 const getConversationsSchema = zod_1.z.object({
-    search: zod_1.z.string().optional(),
+    search: zod_1.z.string().nullish().transform((v) => v !== null && v !== void 0 ? v : undefined),
     channel: zod_1.z.enum(['all', 'whatsapp', 'instagram']).default('all'),
     status: zod_1.z.enum(['all', 'active', 'resolved']).default('all'),
     limit: zod_1.z.number().int().positive().max(200).default(100),

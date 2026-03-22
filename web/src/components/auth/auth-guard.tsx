@@ -1,0 +1,34 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/auth-context';
+
+export function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { firebaseUser, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !firebaseUser) {
+      router.replace('/login');
+    }
+  }, [loading, firebaseUser, router]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!firebaseUser) {
+    // Will be redirected by the useEffect above
+    return null;
+  }
+
+  return <>{children}</>;
+}

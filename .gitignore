@@ -48,3 +48,7 @@ coverage/
 
 # Next.js
 web/next-env.d.ts
+
+# Firebase Admin service account key — NEVER commit this
+scripts/service-account.json
+service-account.json
