@@ -24,3 +24,12 @@ export {
   deleteQuickResponse,
 } from './quickResponses';
 export { getStats, toggleBot } from './stats/getStats';
+export {
+  getConversations,
+  getConversation,
+  sendMessage,
+  addNote,
+  toggleConversationAI,
+  updateConversationLabels,
+  markConversationRead,
+} from './conversations';

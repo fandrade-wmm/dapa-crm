@@ -189,3 +189,106 @@ export const statsApi = {
     return result.data;
   },
 };
+
+// ---------- Conversations ----------
+
+export interface Conversation {
+  id: string;
+  customerPhone: string;
+  customerName: string | null;
+  status: 'active' | 'resolved';
+  aiEnabled: boolean;
+  labels: string[];
+  unreadCount: number;
+  channel: 'whatsapp' | 'instagram';
+  lastMessage: string | null;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  messageType: 'text' | 'image' | 'video' | 'document' | 'note';
+  isInternalNote: boolean;
+  createdAt: string;
+}
+
+export interface ConversationWithMessages extends Conversation {
+  messages: ConversationMessage[];
+}
+
+export type ConversationChannel = 'all' | 'whatsapp' | 'instagram';
+export type ConversationStatus = 'all' | 'active' | 'resolved';
+
+const getConversationsFn = httpsCallable<
+  { search?: string; channel?: ConversationChannel; status?: ConversationStatus; limit?: number },
+  Conversation[]
+>(functions, 'getConversations');
+
+const getConversationFn = httpsCallable<{ id: string }, ConversationWithMessages>(
+  functions,
+  'getConversation'
+);
+
+const sendMessageFn = httpsCallable<
+  { conversationId: string; content: string },
+  ConversationMessage
+>(functions, 'sendMessage');
+
+const addNoteFn = httpsCallable<
+  { conversationId: string; content: string },
+  ConversationMessage
+>(functions, 'addNote');
+
+const toggleConversationAIFn = httpsCallable<
+  { conversationId: string; aiEnabled: boolean },
+  { aiEnabled: boolean }
+>(functions, 'toggleConversationAI');
+
+const updateConversationLabelsFn = httpsCallable<
+  { conversationId: string; labels: string[] },
+  { labels: string[] }
+>(functions, 'updateConversationLabels');
+
+const markConversationReadFn = httpsCallable<
+  { conversationId: string },
+  { success: boolean }
+>(functions, 'markConversationRead');
+
+export const conversationsApi = {
+  getAll: async (params?: {
+    search?: string;
+    channel?: ConversationChannel;
+    status?: ConversationStatus;
+  }): Promise<Conversation[]> => {
+    const result = await getConversationsFn({ limit: 100, ...params });
+    return result.data;
+  },
+  getById: async (id: string): Promise<ConversationWithMessages> => {
+    const result = await getConversationFn({ id });
+    return result.data;
+  },
+  sendMessage: async (conversationId: string, content: string): Promise<ConversationMessage> => {
+    const result = await sendMessageFn({ conversationId, content });
+    return result.data;
+  },
+  addNote: async (conversationId: string, content: string): Promise<ConversationMessage> => {
+    const result = await addNoteFn({ conversationId, content });
+    return result.data;
+  },
+  toggleAI: async (conversationId: string, aiEnabled: boolean): Promise<{ aiEnabled: boolean }> => {
+    const result = await toggleConversationAIFn({ conversationId, aiEnabled });
+    return result.data;
+  },
+  updateLabels: async (conversationId: string, labels: string[]): Promise<{ labels: string[] }> => {
+    const result = await updateConversationLabelsFn({ conversationId, labels });
+    return result.data;
+  },
+  markRead: async (conversationId: string): Promise<{ success: boolean }> => {
+    const result = await markConversationReadFn({ conversationId });
+    return result.data;
+  },
+};
