@@ -162,3 +162,30 @@ export const quickResponsesApi = {
     await deleteQuickResponseFn({ id });
   },
 };
+
+// ---------- Stats API ----------
+
+export interface DashboardStats {
+  todayConversations: number;
+  totalConversations: number;
+  totalUnread: number;
+  totalMessages: number;
+  botEnabled: boolean;
+}
+
+const getStatsFn = httpsCallable<Record<string, never>, DashboardStats>(functions, 'getStats');
+const toggleBotFn = httpsCallable<{ botEnabled: boolean }, { botEnabled: boolean }>(
+  functions,
+  'toggleBot'
+);
+
+export const statsApi = {
+  getStats: async (): Promise<DashboardStats> => {
+    const result = await getStatsFn({});
+    return result.data;
+  },
+  toggleBot: async (botEnabled: boolean): Promise<{ botEnabled: boolean }> => {
+    const result = await toggleBotFn({ botEnabled });
+    return result.data;
+  },
+};

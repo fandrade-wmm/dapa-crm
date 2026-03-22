@@ -23,3 +23,4 @@ export {
   updateQuickResponse,
   deleteQuickResponse,
 } from './quickResponses';
+export { getStats, toggleBot } from './stats/getStats';
