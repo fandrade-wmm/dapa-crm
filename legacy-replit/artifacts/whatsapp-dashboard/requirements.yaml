@@ -1,0 +1,18 @@
+packages:
+  "framer-motion": "For fluid page transitions and interactive element animations"
+  "date-fns": "For formatting chat timestamps and dates in Spanish"
+  "date-fns/locale/es": "Spanish locale for date-fns"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility for merging tailwind classes without conflicts"
+
+images:
+  - path: "artifacts/whatsapp-dashboard/public/images/auth-bg.png"
+    description: "Abstract subtle geometric background in light grey, soft white, and pale indigo, very clean and professional, architectural vibes"
+    aspect_ratio: "16:9"
+  - path: "artifacts/whatsapp-dashboard/public/images/logo-dapa.png"
+    description: "Modern minimalist logo mark for a high-end home decor and lighting brand called DAPA, clean lines, dark indigo color"
+    aspect_ratio: "1:1"
+
+notes:
+  - "Importing hooks directly from @workspace/api-client-react as per monorepo standard, wrapped in local hooks to fulfill structural requirements."
+  - "Using date-fns for robust date formatting in Spanish."

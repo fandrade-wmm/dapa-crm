@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "crm-assistant",
+    "prod": "crm-assistant-prod"
+  }
+}
