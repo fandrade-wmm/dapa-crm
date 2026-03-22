@@ -111,15 +111,24 @@ exports.inviteTeamMember = v2_1.https.onCall(async (request) => {
         if (!existing.empty) {
             throw new v2_1.https.HttpsError('already-exists', 'A user with this email already exists.');
         }
-        // Create Firebase Auth user
+        // Generate a cryptographically random temporary password.
+        // This ensures the Email/Password provider is registered so the user can sign in.
+        const tempPassword = Math.random().toString(36).slice(-8) +
+            Math.random().toString(36).toUpperCase().slice(-4) +
+            '!1';
+        // Create (or reuse) the Firebase Auth user
         let authUser;
         try {
+            // If they already exist in Auth, update to ensure email/password provider is active
             authUser = await admin.auth().getUserByEmail(email);
+            await admin.auth().updateUser(authUser.uid, { password: tempPassword, displayName });
         }
         catch (_a) {
             authUser = await admin.auth().createUser({
                 email,
                 displayName,
+                password: tempPassword,
+                emailVerified: false,
                 disabled: false,
             });
         }
@@ -134,8 +143,11 @@ exports.inviteTeamMember = v2_1.https.onCall(async (request) => {
             isActive: true,
             createdAt: now,
         });
+        // Generate a password reset link — this acts as the invite link.
+        // The team member clicks it, sets their own password, and can log in.
+        const inviteLink = await admin.auth().generatePasswordResetLink(email);
         const created = await docRef.get();
-        return Object.assign({ id: created.id }, created.data());
+        return Object.assign(Object.assign({ id: created.id }, created.data()), { inviteLink });
     }
     catch (err) {
         if (err instanceof v2_1.https.HttpsError)

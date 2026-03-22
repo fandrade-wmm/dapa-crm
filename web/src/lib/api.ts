@@ -309,6 +309,7 @@ export interface TeamMember {
   };
   isActive: boolean;
   createdAt: string;
+  inviteLink?: string;
 }
 
 export interface InviteTeamMemberInput {
@@ -323,7 +324,7 @@ export type UpdateTeamMemberInput = Partial<
 > & { id: string };
 
 const getTeamFn = httpsCallable<Record<string, never>, TeamMember[]>(functions, 'getTeam');
-const inviteTeamMemberFn = httpsCallable<InviteTeamMemberInput, TeamMember>(
+const inviteTeamMemberFn = httpsCallable<InviteTeamMemberInput, TeamMember & { inviteLink: string }>(
   functions,
   'inviteTeamMember'
 );
@@ -341,7 +342,7 @@ export const teamApi = {
     const result = await getTeamFn({});
     return result.data;
   },
-  invite: async (input: InviteTeamMemberInput): Promise<TeamMember> => {
+  invite: async (input: InviteTeamMemberInput): Promise<TeamMember & { inviteLink: string }> => {
     const result = await inviteTeamMemberFn(input);
     return result.data;
   },

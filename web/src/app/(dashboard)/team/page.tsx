@@ -13,6 +13,8 @@ import {
   Loader2,
   AlertCircle,
   Shield,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,6 +85,8 @@ export default function TeamPage() {
     permissions: DEFAULT_PERMISSIONS,
   });
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const {
     data: members = [],
@@ -96,10 +100,11 @@ export default function TeamPage() {
 
   const inviteMutation = useMutation({
     mutationFn: () => teamApi.invite(inviteForm),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['team'] });
       setInviteOpen(false);
       resetInviteForm();
+      setInviteLink(data.inviteLink);
     },
     onError: (err: Error) => setInviteError(err.message),
   });
@@ -127,6 +132,13 @@ export default function TeamPage() {
   function resetInviteForm() {
     setInviteForm({ email: '', displayName: '', role: 'agent', permissions: DEFAULT_PERMISSIONS });
     setInviteError(null);
+  }
+
+  function copyInviteLink() {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   function openInvite() {
@@ -421,6 +433,40 @@ export default function TeamPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Invite Link Dialog */}
+      <Dialog open={!!inviteLink} onOpenChange={(o) => { if (!o) { setInviteLink(null); setCopied(false); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-primary" />
+              Enlace de invitación generado
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Comparte este enlace con el nuevo miembro. Al hacer clic, podrá establecer su contraseña e iniciar sesión.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={inviteLink ?? ''}
+                className="flex-1 text-xs bg-muted border rounded-md px-3 py-2 font-mono truncate"
+              />
+              <Button size="sm" variant="outline" className="shrink-0 gap-1" onClick={copyInviteLink}>
+                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                {copied ? 'Copiado' : 'Copiar'}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              ⚠️ Este enlace expira en 1 hora. Asegúrate de enviárselo al miembro pronto.
+            </p>
+            <Button className="w-full" onClick={() => { setInviteLink(null); setCopied(false); }}>
+              Entendido
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

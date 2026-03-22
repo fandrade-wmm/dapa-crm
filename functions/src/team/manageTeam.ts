@@ -79,7 +79,7 @@ export const getTeam = https.onCall<Record<string, never>, Promise<TeamMemberDat
 
 export const inviteTeamMember = https.onCall<
   z.infer<typeof inviteTeamMemberSchema>,
-  Promise<TeamMemberData>
+  Promise<TeamMemberData & { inviteLink: string }>
 >(async (request) => {
   await verifyAdmin(request);
 
@@ -104,14 +104,25 @@ export const inviteTeamMember = https.onCall<
       throw new https.HttpsError('already-exists', 'A user with this email already exists.');
     }
 
-    // Create Firebase Auth user
+    // Generate a cryptographically random temporary password.
+    // This ensures the Email/Password provider is registered so the user can sign in.
+    const tempPassword =
+      Math.random().toString(36).slice(-8) +
+      Math.random().toString(36).toUpperCase().slice(-4) +
+      '!1';
+
+    // Create (or reuse) the Firebase Auth user
     let authUser: admin.auth.UserRecord;
     try {
+      // If they already exist in Auth, update to ensure email/password provider is active
       authUser = await admin.auth().getUserByEmail(email);
+      await admin.auth().updateUser(authUser.uid, { password: tempPassword, displayName });
     } catch {
       authUser = await admin.auth().createUser({
         email,
         displayName,
+        password: tempPassword,
+        emailVerified: false,
         disabled: false,
       });
     }
@@ -136,10 +147,15 @@ export const inviteTeamMember = https.onCall<
       createdAt: now,
     });
 
+    // Generate a password reset link — this acts as the invite link.
+    // The team member clicks it, sets their own password, and can log in.
+    const inviteLink = await admin.auth().generatePasswordResetLink(email);
+
     const created = await docRef.get();
     return {
       id: created.id,
       ...(created.data() as Omit<TeamMemberData, 'id'>),
+      inviteLink,
     };
   } catch (err) {
     if (err instanceof https.HttpsError) throw err;

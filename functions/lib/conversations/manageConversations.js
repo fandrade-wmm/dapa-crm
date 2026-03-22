@@ -116,7 +116,7 @@ exports.getConversations = v2_1.https.onCall(async (request) => {
     catch (err) {
         if (err instanceof v2_1.https.HttpsError)
             throw err;
-        v2_1.logger.error('Error fetching conversations:', err);
+        v2_1.logger.error('Error fetching conversations:', { message: err.message, stack: err.stack });
         throw new v2_1.https.HttpsError('internal', 'Failed to fetch conversations.');
     }
 });
