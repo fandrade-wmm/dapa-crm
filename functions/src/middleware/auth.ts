@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 import { https } from 'firebase-functions/v2';
-import { adminAuth, adminDb } from '../config/firebase-admin';
+import { adminDb } from '../config/firebase-admin';
 
 /**
  * Verifies that the caller is authenticated and returns their decoded token.
@@ -16,8 +16,8 @@ export async function verifyAuth(
     );
   }
 
-  const decodedToken = await adminAuth.verifyIdToken(context.auth.token);
-  return decodedToken;
+  // context.auth.token is the decoded token in v2
+  return context.auth.token;
 }
 
 /**

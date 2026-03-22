@@ -5,3 +5,9 @@ export {
   updateContact,
   deleteContact,
 } from './contacts';
+export {
+  getLeads,
+  createLead,
+  updateLead,
+  deleteLead,
+} from './leads';
