@@ -22,8 +22,6 @@ const deleteTemplateSchema = z.object({
   id: z.string().min(1),
 });
 
-const getTemplatesSchema = z.object({}).optional();
-
 // ---------- Types ----------
 
 type CreateTemplateRequest = z.infer<typeof createTemplateSchema>;

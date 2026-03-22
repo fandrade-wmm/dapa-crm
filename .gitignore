@@ -45,3 +45,6 @@ Thumbs.db
 
 # Testing
 coverage/
+
+# Next.js
+web/next-env.d.ts
