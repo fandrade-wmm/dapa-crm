@@ -7,6 +7,8 @@ import {
   MessageSquare,
   Settings,
   LayoutDashboard,
+  LayoutTemplate,
+  Zap,
 } from 'lucide-react';
 
 const navItems = [
@@ -19,6 +21,16 @@ const navItems = [
     label: 'Conversations',
     href: '/conversations',
     icon: MessageSquare,
+  },
+  {
+    label: 'Plantillas',
+    href: '/templates',
+    icon: LayoutTemplate,
+  },
+  {
+    label: 'Resp. Rápidas',
+    href: '/quick-responses',
+    icon: Zap,
   },
   {
     label: 'Settings',
