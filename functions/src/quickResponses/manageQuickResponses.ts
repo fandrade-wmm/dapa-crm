@@ -9,7 +9,7 @@ import { verifyAuth } from '../middleware/auth';
 const createQuickResponseSchema = z.object({
   title: z.string().min(1),
   content: z.string().min(1),
-  category: z.string().min(1),
+  category: z.string().default(''),
   sortOrder: z.number().int().default(0),
 });
 

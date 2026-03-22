@@ -60,6 +60,16 @@ function TemplateModal({ template, onClose, onSave, isSaving }: TemplateModalPro
 
   const isValid = name.trim().length > 0 && content.trim().length > 0;
 
+  function buildPayload(): CreateTemplateInput {
+    return {
+      name,
+      category,
+      content,
+      language: template?.language ?? 'es',
+      isActive: template?.isActive ?? true,
+    };
+  }
+
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !isSaving) onClose(); }}>
       <DialogContent className="sm:max-w-xl">
@@ -138,7 +148,7 @@ function TemplateModal({ template, onClose, onSave, isSaving }: TemplateModalPro
             </Button>
             <Button
               className="flex-1 gap-2"
-              onClick={() => onSave({ name, category, content, language: template?.language ?? 'es', isActive: template?.isActive ?? true })}
+              onClick={() => onSave(buildPayload())}
               disabled={!isValid || isSaving}
             >
               {isSaving ? (

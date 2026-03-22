@@ -96,7 +96,7 @@ export default function QuickResponsesPage() {
 
   function openEdit(r: QuickResponse) {
     setEditingId(r.id);
-    setForm({ title: r.title, content: r.content, category: r.category ?? '', sortOrder: r.sortOrder });
+    setForm({ title: r.title, content: r.content, category: r.category, sortOrder: r.sortOrder });
     setEditorOpen(true);
   }
 
@@ -107,13 +107,13 @@ export default function QuickResponsesPage() {
     toast({ title: 'Contenido copiado al portapapeles' });
   }
 
-  const categories = Array.from(new Set(responses.map((r) => r.category).filter(Boolean)));
+  const categories = Array.from(new Set(responses.map((r) => r.category).filter((c) => c.length > 0)));
 
   const filtered = search
     ? responses.filter((r) =>
         r.title.toLowerCase().includes(search.toLowerCase()) ||
         r.content.toLowerCase().includes(search.toLowerCase()) ||
-        r.category?.toLowerCase().includes(search.toLowerCase()),
+        r.category.toLowerCase().includes(search.toLowerCase()),
       )
     : responses;
 
@@ -305,7 +305,7 @@ export default function QuickResponsesPage() {
                     <button
                       key={c}
                       type="button"
-                      onClick={() => setForm((p) => ({ ...p, category: c ?? '' }))}
+                      onClick={() => setForm((p) => ({ ...p, category: c }))}
                       className={cn(
                         'text-xs px-2 py-1 rounded-full border transition-colors',
                         form.category === c
