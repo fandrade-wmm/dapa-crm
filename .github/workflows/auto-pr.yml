@@ -1,0 +1,23 @@
+name: Auto PR — develop → staging
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  auto-pr:
+    name: Open PR develop → staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create PR develop → staging
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base staging \
+            --head develop \
+            --title "chore: promote develop → staging" \
+            --body "Automated PR: promote changes from develop to staging." \
+            || echo "PR already exists or nothing to promote"

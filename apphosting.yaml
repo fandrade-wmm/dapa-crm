@@ -1,24 +1,58 @@
+rootDir: web
+
 runConfig:
-  runtime: nodejs20
+  runtime: nodejs22
   cpu: 1
   memoryMiB: 512
   concurrency: 80
   minInstances: 0
   maxInstances: 100
+
 env:
-  - variable: NODE_ENV
-    value: production
-  - variable: FIREBASE_API_KEY
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: "AIzaSyBqIjCpzLZAxNfzIsaX8o12xBM5j6rcYq8"
-  - variable: FIREBASE_AUTH_DOMAIN
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
     value: "dapa-crm-assistant.firebaseapp.com"
-  - variable: FIREBASE_PROJECT_ID
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
     value: "dapa-crm-assistant"
-  - variable: FIREBASE_STORAGE_BUCKET
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
     value: "dapa-crm-assistant.firebasestorage.app"
-  - variable: FIREBASE_MESSAGING_SENDER_ID
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     value: "1089527733766"
-  - variable: FIREBASE_APP_ID
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: "1:1089527733766:web:7635a247b29c3c36cbad87"
-  - variable: FIREBASE_MEASUREMENT_ID
-    value: "G-358S1GKDK9" 
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: "G-358S1GKDK9"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # Add GEMINI_API_KEY to Firebase Secret Manager and reference it here:
+  # - variable: GEMINI_API_KEY
+  #   secret: GEMINI_API_KEY
+  #   availability:
+  #     - RUNTIME
