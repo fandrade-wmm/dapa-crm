@@ -24,7 +24,7 @@ export default function ContactsPage() {
         description: 'Lead updated successfully',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Error',
         description: error.message || 'Failed to update lead',
@@ -42,7 +42,7 @@ export default function ContactsPage() {
         description: 'Lead created successfully',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Error',
         description: error.message || 'Failed to create lead',
@@ -60,7 +60,7 @@ export default function ContactsPage() {
         description: 'Lead deleted successfully',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete lead',
