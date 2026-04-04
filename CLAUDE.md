@@ -157,3 +157,13 @@ These practices keep Claude Code efficient and reduce wasted context:
 6. **Run typecheck once** before committing, not after every edit
 7. **Don't add unnecessary comments, docstrings, or type annotations** to code you didn't change
 8. **Don't refactor or "improve" code beyond what was asked** — Stay on task
+
+## Security Rules (MANDATORY)
+- NEVER run `firebase deploy` from Claude Code — all deploys go through GitHub CI
+- NEVER run `git push --force` or `git push --force-with-lease` to any branch
+- NEVER modify firestore.rules without explicit approval from admin@webmymoney.com or fran@webmymoney.com
+- NEVER modify apphosting.yaml or apphosting.prod.yaml secrets
+- NEVER delete Firestore documents — use status:archived pattern instead
+- NEVER commit .env.local, service account keys, or API tokens to git
+- NEVER modify branch protection rules or GitHub settings
+- All security rule changes require review by Fran (fran@webmymoney.com) or Admin (admin@webmymoney.com)
