@@ -1,0 +1,134 @@
+{
+  "auth": {
+    "title": "CRM Assistant",
+    "login": {
+      "subtitle": "Inicia sesión en tu cuenta",
+      "email": "Email",
+      "password": "Contraseña",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "submit": "Iniciar sesión",
+      "submitting": "Iniciando sesión...",
+      "error": "Email o contraseña incorrectos. Inténtalo de nuevo."
+    },
+    "forgotPassword": {
+      "subtitle": "Restablece tu contraseña",
+      "description": "Ingresa el email asociado a tu cuenta y te enviaremos un enlace de restablecimiento.",
+      "email": "Email",
+      "submit": "Enviar enlace",
+      "sending": "Enviando...",
+      "successTitle": "Revisa tu bandeja",
+      "successDesc": "Si {email} está registrado, recibirás un enlace de restablecimiento en breve.",
+      "backToLogin": "Volver a iniciar sesión",
+      "rememberPassword": "¿Recuerdas tu contraseña?",
+      "signIn": "Iniciar sesión"
+    }
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "conversations": "Conversaciones",
+    "crm": "CRM",
+    "team": "Equipo",
+    "templates": "Plantillas",
+    "quickResponses": "Resp. Rápidas",
+    "automations": "Automatizaciones",
+    "settings": "Configuración",
+    "appName": "CRM Assistant"
+  },
+  "dashboard": {
+    "title": "Panel de Control",
+    "subtitle": "Resumen del rendimiento de tu asistente de IA.",
+    "today": "Hoy",
+    "todaySublabel": "conversaciones nuevas",
+    "total": "Total histórico",
+    "totalSublabel": "clientes atendidos",
+    "unread": "Sin leer",
+    "unreadSublabel": "mensajes pendientes",
+    "upToDate": "al día",
+    "messages": "Mensajes totales",
+    "messagesSublabel": "enviados y recibidos",
+    "recentTitle": "Conversaciones Recientes",
+    "viewAll": "Ver todas",
+    "loading": "Cargando conversaciones...",
+    "noConversations": "Aún no hay conversaciones registradas.",
+    "noConversationsDesc": "Los mensajes de WhatsApp aparecerán aquí.",
+    "statsError": "No se pudieron cargar las estadísticas. Mostrando valores por defecto.",
+    "bot": {
+      "label": "Respuestas IA",
+      "on": "Encendida",
+      "off": "Apagada",
+      "loading": "Cargando...",
+      "changing": "Cambiando...",
+      "activatedTitle": "IA activada",
+      "activatedDesc": "El bot responderá automáticamente a los clientes.",
+      "deactivatedTitle": "IA desactivada",
+      "deactivatedDesc": "Las respuestas automáticas están pausadas.",
+      "errorTitle": "Error al cambiar estado del bot"
+    }
+  },
+  "conversations": {
+    "title": "Conversaciones",
+    "search": "Buscar conversaciones...",
+    "all": "Todas",
+    "whatsapp": "WhatsApp",
+    "instagram": "Instagram",
+    "active": "Activas",
+    "resolved": "Resueltas",
+    "noConversations": "No hay conversaciones",
+    "loading": "Cargando..."
+  },
+  "contacts": {
+    "title": "CRM — Leads",
+    "nuevos": "Nuevos",
+    "proforma": "Proforma",
+    "venta": "Venta",
+    "completado": "Completado",
+    "perdido": "Perdido",
+    "updateSuccess": "Lead actualizado correctamente",
+    "createSuccess": "Lead creado correctamente",
+    "deleteSuccess": "Lead eliminado correctamente",
+    "updateError": "Error al actualizar el lead",
+    "createError": "Error al crear el lead",
+    "deleteError": "Error al eliminar el lead",
+    "loading": "Cargando leads...",
+    "loadError": "Error al cargar leads. Inténtalo de nuevo."
+  },
+  "templates": {
+    "title": "Plantillas",
+    "newTemplate": "Nueva plantilla",
+    "name": "Nombre",
+    "category": "Categoría",
+    "content": "Contenido",
+    "language": "Idioma",
+    "active": "Activa",
+    "noTemplates": "No hay plantillas"
+  },
+  "quickResponses": {
+    "title": "Respuestas Rápidas",
+    "newResponse": "Nueva respuesta",
+    "noResponses": "No hay respuestas rápidas"
+  },
+  "automations": {
+    "title": "Automatizaciones",
+    "newAutomation": "Nueva automatización",
+    "noAutomations": "No hay automatizaciones"
+  },
+  "team": {
+    "title": "Equipo",
+    "invite": "Invitar miembro",
+    "noMembers": "No hay miembros en el equipo"
+  },
+  "settings": {
+    "title": "Configuración"
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "confirm": "Confirmar"
+  }
+}

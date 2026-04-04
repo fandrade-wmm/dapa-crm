@@ -1,0 +1,134 @@
+{
+  "auth": {
+    "title": "CRM Assistant",
+    "login": {
+      "subtitle": "Sign in to your account",
+      "email": "Email",
+      "password": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "submitting": "Signing in...",
+      "error": "Invalid email or password. Please try again."
+    },
+    "forgotPassword": {
+      "subtitle": "Reset your password",
+      "description": "Enter the email address associated with your account and we'll send you a reset link.",
+      "email": "Email",
+      "submit": "Send reset link",
+      "sending": "Sending...",
+      "successTitle": "Check your inbox",
+      "successDesc": "If {email} is registered, you will receive a password reset link shortly.",
+      "backToLogin": "Back to sign in",
+      "rememberPassword": "Remember your password?",
+      "signIn": "Sign in"
+    }
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "conversations": "Conversations",
+    "crm": "CRM",
+    "team": "Team",
+    "templates": "Templates",
+    "quickResponses": "Quick Replies",
+    "automations": "Automations",
+    "settings": "Settings",
+    "appName": "CRM Assistant"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of your AI assistant performance.",
+    "today": "Today",
+    "todaySublabel": "new conversations",
+    "total": "Total historic",
+    "totalSublabel": "customers served",
+    "unread": "Unread",
+    "unreadSublabel": "pending messages",
+    "upToDate": "up to date",
+    "messages": "Total messages",
+    "messagesSublabel": "sent and received",
+    "recentTitle": "Recent Conversations",
+    "viewAll": "View all",
+    "loading": "Loading conversations...",
+    "noConversations": "No conversations yet.",
+    "noConversationsDesc": "WhatsApp messages will appear here.",
+    "statsError": "Could not load stats. Showing default values.",
+    "bot": {
+      "label": "AI Responses",
+      "on": "On",
+      "off": "Off",
+      "loading": "Loading...",
+      "changing": "Changing...",
+      "activatedTitle": "AI activated",
+      "activatedDesc": "The bot will respond automatically to customers.",
+      "deactivatedTitle": "AI deactivated",
+      "deactivatedDesc": "Automatic responses are paused.",
+      "errorTitle": "Error changing bot status"
+    }
+  },
+  "conversations": {
+    "title": "Conversations",
+    "search": "Search conversations...",
+    "all": "All",
+    "whatsapp": "WhatsApp",
+    "instagram": "Instagram",
+    "active": "Active",
+    "resolved": "Resolved",
+    "noConversations": "No conversations",
+    "loading": "Loading..."
+  },
+  "contacts": {
+    "title": "CRM — Leads",
+    "nuevos": "New",
+    "proforma": "Proforma",
+    "venta": "Sale",
+    "completado": "Completed",
+    "perdido": "Lost",
+    "updateSuccess": "Lead updated successfully",
+    "createSuccess": "Lead created successfully",
+    "deleteSuccess": "Lead deleted successfully",
+    "updateError": "Failed to update lead",
+    "createError": "Failed to create lead",
+    "deleteError": "Failed to delete lead",
+    "loading": "Loading leads...",
+    "loadError": "Error loading leads. Please try again."
+  },
+  "templates": {
+    "title": "Templates",
+    "newTemplate": "New template",
+    "name": "Name",
+    "category": "Category",
+    "content": "Content",
+    "language": "Language",
+    "active": "Active",
+    "noTemplates": "No templates"
+  },
+  "quickResponses": {
+    "title": "Quick Responses",
+    "newResponse": "New response",
+    "noResponses": "No quick responses"
+  },
+  "automations": {
+    "title": "Automations",
+    "newAutomation": "New automation",
+    "noAutomations": "No automations"
+  },
+  "team": {
+    "title": "Team",
+    "invite": "Invite member",
+    "noMembers": "No team members"
+  },
+  "settings": {
+    "title": "Settings"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm"
+  }
+}
