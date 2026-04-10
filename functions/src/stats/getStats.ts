@@ -16,49 +16,48 @@ export const getStats = https.onCall<Record<string, never>, Promise<StatsRespons
     const token = await verifyAuth(request);
     const uid = token.uid;
 
-    const botDocRef = adminDb.collection('users').doc(uid).collection('settings').doc('bot');
-    const botDoc = await botDocRef.get();
+    // Bot setting (stored per user)
+    const botDoc = await adminDb
+      .collection('users').doc(uid)
+      .collection('settings').doc('bot')
+      .get();
     const botEnabled: boolean = botDoc.exists ? (botDoc.data()?.botEnabled ?? true) : true;
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const convsCollectionRef = adminDb
-      .collection('users')
-      .doc(uid)
-      .collection('conversations');
+    // Conversations are stored in the root collection with ownerId field
+    const convsRef = adminDb.collection('conversations').where('ownerId', '==', uid);
 
-    const [totalConversationsAggSnap, todayConversationsAggSnap, convsSnap] = await Promise.all([
-      convsCollectionRef.count().get(),
-      convsCollectionRef.where('createdAt', '>=', todayStart).count().get(),
-      convsCollectionRef.select('unreadCount', 'messageCount').get(),
+    const [totalSnap, todaySnap, allConvsSnap] = await Promise.all([
+      convsRef.count().get(),
+      convsRef.where('createdAt', '>=', todayStart).count().get(),
+      convsRef.select('unreadCount').get(),
     ]);
 
-    const totalConversations = totalConversationsAggSnap.data().count;
-    const todayConversations = todayConversationsAggSnap.data().count;
+    const totalConversations = totalSnap.data().count;
+    const todayConversations = todaySnap.data().count;
 
     let totalUnread = 0;
     let totalMessages = 0;
 
-    for (const doc of convsSnap.docs) {
-      const data = doc.data();
-      totalUnread += data.unreadCount ?? 0;
-      totalMessages += data.messageCount ?? 0;
+    for (const doc of allConvsSnap.docs) {
+      totalUnread += doc.data().unreadCount ?? 0;
     }
 
-    return {
-      todayConversations,
-      totalConversations,
-      totalUnread,
-      totalMessages,
-      botEnabled,
-    };
+    // Count total messages across all conversations (aggregate)
+    const msgsSnap = await adminDb
+      .collectionGroup('messages')
+      .where('role', '==', 'user')
+      .count()
+      .get();
+    totalMessages = msgsSnap.data().count;
+
+    return { todayConversations, totalConversations, totalUnread, totalMessages, botEnabled };
   }
 );
 
-const toggleBotSchema = z.object({
-  botEnabled: z.boolean(),
-});
+const toggleBotSchema = z.object({ botEnabled: z.boolean() });
 
 export const toggleBot = https.onCall<{ botEnabled: boolean }, Promise<{ botEnabled: boolean }>>(
   async (request) => {
@@ -67,21 +66,14 @@ export const toggleBot = https.onCall<{ botEnabled: boolean }, Promise<{ botEnab
 
     const parsed = toggleBotSchema.safeParse(request.data);
     if (!parsed.success) {
-      throw new https.HttpsError(
-        'invalid-argument',
-        'botEnabled must be a boolean. ' + parsed.error.message
-      );
+      throw new https.HttpsError('invalid-argument', parsed.error.message);
     }
 
-    const { botEnabled } = parsed.data;
-
     await adminDb
-      .collection('users')
-      .doc(uid)
-      .collection('settings')
-      .doc('bot')
-      .set({ botEnabled }, { merge: true });
+      .collection('users').doc(uid)
+      .collection('settings').doc('bot')
+      .set({ botEnabled: parsed.data.botEnabled }, { merge: true });
 
-    return { botEnabled };
+    return { botEnabled: parsed.data.botEnabled };
   }
 );

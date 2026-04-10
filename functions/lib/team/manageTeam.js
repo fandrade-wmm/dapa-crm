@@ -44,7 +44,7 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeTeamMember = exports.updateTeamMember = exports.inviteTeamMember = exports.getTeam = void 0;
+exports.removeTeamMember = exports.updateTeamMember = exports.inviteTeamMember = exports.getTeam = exports.getActiveAgents = void 0;
 const admin = __importStar(require("firebase-admin"));
 const v2_1 = require("firebase-functions/v2");
 const zod_1 = require("zod");
@@ -83,6 +83,28 @@ const removeTeamMemberSchema = zod_1.z.object({
     id: zod_1.z.string().min(1),
 });
 // ---------- Cloud Functions ----------
+// ---------- getActiveAgents (any authenticated user) ----------
+exports.getActiveAgents = v2_1.https.onCall(async (request) => {
+    await (0, auth_1.verifyAuth)(request);
+    try {
+        const snapshot = await firebase_admin_1.adminDb.collection('users').get();
+        return snapshot.docs
+            .filter((doc) => doc.data().isActive !== false)
+            .map((doc) => {
+            var _a;
+            return ({
+                id: doc.id,
+                displayName: ((_a = doc.data().displayName) !== null && _a !== void 0 ? _a : doc.data().name) || null,
+                email: doc.data().email,
+            });
+        });
+    }
+    catch (err) {
+        v2_1.logger.error('Error fetching active agents:', err);
+        throw new v2_1.https.HttpsError('internal', 'Failed to fetch agents.');
+    }
+});
+// ---------- getTeam (admin only) ----------
 exports.getTeam = v2_1.https.onCall(async (request) => {
     await (0, auth_1.verifyAdmin)(request);
     try {

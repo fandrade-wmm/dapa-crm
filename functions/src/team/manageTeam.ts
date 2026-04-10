@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 import { https, logger } from 'firebase-functions/v2';
 import { z } from 'zod';
 import { adminDb } from '../config/firebase-admin';
-import { verifyAdmin } from '../middleware/auth';
+import { verifyAdmin, verifyAuth } from '../middleware/auth';
 
 // ---------- Schemas ----------
 
@@ -59,6 +59,30 @@ export interface TeamMemberData {
 }
 
 // ---------- Cloud Functions ----------
+
+// ---------- getActiveAgents (any authenticated user) ----------
+
+export const getActiveAgents = https.onCall<
+  Record<string, never>,
+  Promise<{ id: string; displayName: string | null; email: string }[]>
+>(async (request) => {
+  await verifyAuth(request);
+  try {
+    const snapshot = await adminDb.collection('users').get();
+    return snapshot.docs
+      .filter((doc) => doc.data().isActive !== false)
+      .map((doc) => ({
+        id: doc.id,
+        displayName: (doc.data().displayName ?? doc.data().name) || null,
+        email: doc.data().email as string,
+      }));
+  } catch (err) {
+    logger.error('Error fetching active agents:', err);
+    throw new https.HttpsError('internal', 'Failed to fetch agents.');
+  }
+});
+
+// ---------- getTeam (admin only) ----------
 
 export const getTeam = https.onCall<Record<string, never>, Promise<TeamMemberData[]>>(
   async (request) => {

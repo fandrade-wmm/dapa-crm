@@ -1,8 +1,12 @@
 import * as admin from 'firebase-admin';
 import { https, logger } from 'firebase-functions/v2';
+import { defineSecret } from 'firebase-functions/params';
 import { z } from 'zod';
 import { adminDb } from '../config/firebase-admin';
 import { verifyAuth } from '../middleware/auth';
+import { sendTextMessage, toChatId } from '../handlers/whapi/whapiClient';
+
+const whapiApiToken = defineSecret('WHAPI_API_TOKEN');
 
 // ---------- Schemas ----------
 
@@ -41,6 +45,12 @@ const markConversationReadSchema = z.object({
   conversationId: z.string().min(1),
 });
 
+const assignConversationSchema = z.object({
+  conversationId: z.string().min(1),
+  assignedTo: z.string().nullable(),
+  assignedToName: z.string().nullable(),
+});
+
 // ---------- Types ----------
 
 export interface ConversationData {
@@ -54,6 +64,8 @@ export interface ConversationData {
   channel: 'whatsapp' | 'instagram';
   lastMessage: string | null;
   ownerId: string;
+  assignedTo: string | null;
+  assignedToName: string | null;
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
 }
@@ -125,9 +137,12 @@ export const getConversations = https.onCall<
 
     if (search) {
       const q = search.toLowerCase();
+      // Strip non-digits for phone matching (handles "+593...", "593...", "09..." etc.)
+      const qDigits = search.replace(/\D/g, '');
       results = results.filter(
         (c) =>
           c.customerName?.toLowerCase().includes(q) ||
+          (qDigits.length >= 3 && c.customerPhone.includes(qDigits)) ||
           c.customerPhone.includes(q) ||
           c.lastMessage?.toLowerCase().includes(q)
       );
@@ -181,7 +196,7 @@ export const getConversation = https.onCall<
 export const sendMessage = https.onCall<
   z.infer<typeof sendMessageSchema>,
   Promise<MessageData>
->(async (request) => {
+>({ secrets: [whapiApiToken] }, async (request) => {
   const authToken = await verifyAuth(request);
 
   const parsed = sendMessageSchema.safeParse(request.data);
@@ -192,28 +207,60 @@ export const sendMessage = https.onCall<
   const { conversationId, content } = parsed.data;
 
   try {
-    await assertConversationOwner(conversationId, authToken.uid);
+    const convDoc = await assertConversationOwner(conversationId, authToken.uid);
+    const convData = convDoc.data() as ConversationData;
 
+    const token = whapiApiToken.value();
     const now = admin.firestore.FieldValue.serverTimestamp();
-    const msgRef = await adminDb
+    const clientNow = admin.firestore.Timestamp.now();
+
+    // Step 1: Send via Whapi first so we get the Whapi message ID.
+    // Using that ID as the Firestore document ID makes the webhook's
+    // idempotency check (doc(msg.id).exists) find and skip the duplicate.
+    let whapiMessageId: string | undefined;
+    if (convData.channel === 'whatsapp' && token) {
+      process.env.WHAPI_API_TOKEN = token;
+      try {
+        const whapiRes = await sendTextMessage(toChatId(convData.customerPhone), content);
+        whapiMessageId = whapiRes.id;
+      } catch (whapiErr) {
+        logger.error('Whapi send failed — message stored but not delivered:', whapiErr);
+      }
+    }
+
+    // Step 2: Persist to Firestore using Whapi ID as doc ID (prevents webhook duplicate).
+    const msgRef = adminDb
       .collection('conversations')
       .doc(conversationId)
       .collection('messages')
-      .add({
+      .doc(whapiMessageId ?? adminDb.collection('_').doc().id);
+
+    await Promise.all([
+      // Write message to Firestore
+      msgRef.set({
         role: 'assistant',
         content,
         messageType: 'text',
         isInternalNote: false,
+        ...(whapiMessageId ? { whapiMessageId } : {}),
         createdAt: now,
-      });
+      }),
+      // Update conversation metadata
+      adminDb.collection('conversations').doc(conversationId).update({
+        lastMessage: content,
+        updatedAt: now,
+      }),
+    ]);
 
-    await adminDb.collection('conversations').doc(conversationId).update({
-      lastMessage: content,
-      updatedAt: now,
-    });
-
-    const msgDoc = await msgRef.get();
-    return { id: msgDoc.id, ...(msgDoc.data() as Omit<MessageData, 'id'>) };
+    // Return without an extra Firestore read
+    return {
+      id: msgRef.id,
+      role: 'assistant',
+      content,
+      messageType: 'text',
+      isInternalNote: false,
+      createdAt: clientNow,
+    } as MessageData;
   } catch (err) {
     if (err instanceof https.HttpsError) throw err;
     logger.error('Error sending message:', err);
@@ -238,24 +285,34 @@ export const addNote = https.onCall<
     await assertConversationOwner(conversationId, authToken.uid);
 
     const now = admin.firestore.FieldValue.serverTimestamp();
-    const msgRef = await adminDb
+    const clientNow = admin.firestore.Timestamp.now();
+    const msgRef = adminDb
       .collection('conversations')
       .doc(conversationId)
       .collection('messages')
-      .add({
+      .doc();
+
+    await Promise.all([
+      msgRef.set({
         role: 'assistant',
         content,
         messageType: 'note',
         isInternalNote: true,
         createdAt: now,
-      });
+      }),
+      adminDb.collection('conversations').doc(conversationId).update({
+        updatedAt: now,
+      }),
+    ]);
 
-    await adminDb.collection('conversations').doc(conversationId).update({
-      updatedAt: now,
-    });
-
-    const msgDoc = await msgRef.get();
-    return { id: msgDoc.id, ...(msgDoc.data() as Omit<MessageData, 'id'>) };
+    return {
+      id: msgRef.id,
+      role: 'assistant',
+      content,
+      messageType: 'note',
+      isInternalNote: true,
+      createdAt: clientNow,
+    } as MessageData;
   } catch (err) {
     if (err instanceof https.HttpsError) throw err;
     logger.error('Error adding note:', err);
@@ -334,12 +391,40 @@ export const markConversationRead = https.onCall<
     await assertConversationOwner(conversationId, authToken.uid);
     await adminDb.collection('conversations').doc(conversationId).update({
       unreadCount: 0,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      // Do NOT update updatedAt here — marking as read should not change sort order
     });
     return { success: true };
   } catch (err) {
     if (err instanceof https.HttpsError) throw err;
     logger.error('Error marking read:', err);
     throw new https.HttpsError('internal', 'Failed to mark as read.');
+  }
+});
+
+export const assignConversation = https.onCall<
+  z.infer<typeof assignConversationSchema>,
+  Promise<{ assignedTo: string | null; assignedToName: string | null }>
+>(async (request) => {
+  const authToken = await verifyAuth(request);
+
+  const parsed = assignConversationSchema.safeParse(request.data);
+  if (!parsed.success) {
+    throw new https.HttpsError('invalid-argument', parsed.error.message);
+  }
+
+  const { conversationId, assignedTo, assignedToName } = parsed.data;
+
+  try {
+    await assertConversationOwner(conversationId, authToken.uid);
+    await adminDb.collection('conversations').doc(conversationId).update({
+      assignedTo,
+      assignedToName,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { assignedTo, assignedToName };
+  } catch (err) {
+    if (err instanceof https.HttpsError) throw err;
+    logger.error('Error assigning conversation:', err);
+    throw new https.HttpsError('internal', 'Failed to assign conversation.');
   }
 });

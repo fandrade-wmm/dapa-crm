@@ -33,12 +33,15 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markConversationRead = exports.updateConversationLabels = exports.toggleConversationAI = exports.addNote = exports.sendMessage = exports.getConversation = exports.getConversations = void 0;
+exports.assignConversation = exports.markConversationRead = exports.updateConversationLabels = exports.toggleConversationAI = exports.addNote = exports.sendMessage = exports.getConversation = exports.getConversations = void 0;
 const admin = __importStar(require("firebase-admin"));
 const v2_1 = require("firebase-functions/v2");
+const params_1 = require("firebase-functions/params");
 const zod_1 = require("zod");
 const firebase_admin_1 = require("../config/firebase-admin");
 const auth_1 = require("../middleware/auth");
+const whapiClient_1 = require("../handlers/whapi/whapiClient");
+const whapiApiToken = (0, params_1.defineSecret)('WHAPI_API_TOKEN');
 // ---------- Schemas ----------
 const getConversationsSchema = zod_1.z.object({
     search: zod_1.z.string().nullish().transform((v) => v !== null && v !== void 0 ? v : undefined),
@@ -67,6 +70,11 @@ const updateConversationLabelsSchema = zod_1.z.object({
 });
 const markConversationReadSchema = zod_1.z.object({
     conversationId: zod_1.z.string().min(1),
+});
+const assignConversationSchema = zod_1.z.object({
+    conversationId: zod_1.z.string().min(1),
+    assignedTo: zod_1.z.string().nullable(),
+    assignedToName: zod_1.z.string().nullable(),
 });
 // ---------- Helpers ----------
 async function assertConversationOwner(conversationId, uid) {
@@ -104,9 +112,12 @@ exports.getConversations = v2_1.https.onCall(async (request) => {
         let results = snapshot.docs.map((doc) => (Object.assign({ id: doc.id }, doc.data())));
         if (search) {
             const q = search.toLowerCase();
+            // Strip non-digits for phone matching (handles "+593...", "593...", "09..." etc.)
+            const qDigits = search.replace(/\D/g, '');
             results = results.filter((c) => {
                 var _a, _b;
                 return ((_a = c.customerName) === null || _a === void 0 ? void 0 : _a.toLowerCase().includes(q)) ||
+                    (qDigits.length >= 3 && c.customerPhone.includes(qDigits)) ||
                     c.customerPhone.includes(q) ||
                     ((_b = c.lastMessage) === null || _b === void 0 ? void 0 : _b.toLowerCase().includes(q));
             });
@@ -144,7 +155,7 @@ exports.getConversation = v2_1.https.onCall(async (request) => {
         throw new v2_1.https.HttpsError('internal', 'Failed to fetch conversation.');
     }
 });
-exports.sendMessage = v2_1.https.onCall(async (request) => {
+exports.sendMessage = v2_1.https.onCall({ secrets: [whapiApiToken] }, async (request) => {
     const authToken = await (0, auth_1.verifyAuth)(request);
     const parsed = sendMessageSchema.safeParse(request.data);
     if (!parsed.success) {
@@ -152,25 +163,49 @@ exports.sendMessage = v2_1.https.onCall(async (request) => {
     }
     const { conversationId, content } = parsed.data;
     try {
-        await assertConversationOwner(conversationId, authToken.uid);
+        const convDoc = await assertConversationOwner(conversationId, authToken.uid);
+        const convData = convDoc.data();
+        const token = whapiApiToken.value();
         const now = admin.firestore.FieldValue.serverTimestamp();
-        const msgRef = await firebase_admin_1.adminDb
+        const clientNow = admin.firestore.Timestamp.now();
+        // Step 1: Send via Whapi first so we get the Whapi message ID.
+        // Using that ID as the Firestore document ID makes the webhook's
+        // idempotency check (doc(msg.id).exists) find and skip the duplicate.
+        let whapiMessageId;
+        if (convData.channel === 'whatsapp' && token) {
+            process.env.WHAPI_API_TOKEN = token;
+            try {
+                const whapiRes = await (0, whapiClient_1.sendTextMessage)((0, whapiClient_1.toChatId)(convData.customerPhone), content);
+                whapiMessageId = whapiRes.id;
+            }
+            catch (whapiErr) {
+                v2_1.logger.error('Whapi send failed — message stored but not delivered:', whapiErr);
+            }
+        }
+        // Step 2: Persist to Firestore using Whapi ID as doc ID (prevents webhook duplicate).
+        const msgRef = firebase_admin_1.adminDb
             .collection('conversations')
             .doc(conversationId)
             .collection('messages')
-            .add({
+            .doc(whapiMessageId !== null && whapiMessageId !== void 0 ? whapiMessageId : firebase_admin_1.adminDb.collection('_').doc().id);
+        await Promise.all([
+            // Write message to Firestore
+            msgRef.set(Object.assign(Object.assign({ role: 'assistant', content, messageType: 'text', isInternalNote: false }, (whapiMessageId ? { whapiMessageId } : {})), { createdAt: now })),
+            // Update conversation metadata
+            firebase_admin_1.adminDb.collection('conversations').doc(conversationId).update({
+                lastMessage: content,
+                updatedAt: now,
+            }),
+        ]);
+        // Return without an extra Firestore read
+        return {
+            id: msgRef.id,
             role: 'assistant',
             content,
             messageType: 'text',
             isInternalNote: false,
-            createdAt: now,
-        });
-        await firebase_admin_1.adminDb.collection('conversations').doc(conversationId).update({
-            lastMessage: content,
-            updatedAt: now,
-        });
-        const msgDoc = await msgRef.get();
-        return Object.assign({ id: msgDoc.id }, msgDoc.data());
+            createdAt: clientNow,
+        };
     }
     catch (err) {
         if (err instanceof v2_1.https.HttpsError)
@@ -189,22 +224,32 @@ exports.addNote = v2_1.https.onCall(async (request) => {
     try {
         await assertConversationOwner(conversationId, authToken.uid);
         const now = admin.firestore.FieldValue.serverTimestamp();
-        const msgRef = await firebase_admin_1.adminDb
+        const clientNow = admin.firestore.Timestamp.now();
+        const msgRef = firebase_admin_1.adminDb
             .collection('conversations')
             .doc(conversationId)
             .collection('messages')
-            .add({
+            .doc();
+        await Promise.all([
+            msgRef.set({
+                role: 'assistant',
+                content,
+                messageType: 'note',
+                isInternalNote: true,
+                createdAt: now,
+            }),
+            firebase_admin_1.adminDb.collection('conversations').doc(conversationId).update({
+                updatedAt: now,
+            }),
+        ]);
+        return {
+            id: msgRef.id,
             role: 'assistant',
             content,
             messageType: 'note',
             isInternalNote: true,
-            createdAt: now,
-        });
-        await firebase_admin_1.adminDb.collection('conversations').doc(conversationId).update({
-            updatedAt: now,
-        });
-        const msgDoc = await msgRef.get();
-        return Object.assign({ id: msgDoc.id }, msgDoc.data());
+            createdAt: clientNow,
+        };
     }
     catch (err) {
         if (err instanceof v2_1.https.HttpsError)
@@ -268,7 +313,7 @@ exports.markConversationRead = v2_1.https.onCall(async (request) => {
         await assertConversationOwner(conversationId, authToken.uid);
         await firebase_admin_1.adminDb.collection('conversations').doc(conversationId).update({
             unreadCount: 0,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            // Do NOT update updatedAt here — marking as read should not change sort order
         });
         return { success: true };
     }
@@ -277,6 +322,29 @@ exports.markConversationRead = v2_1.https.onCall(async (request) => {
             throw err;
         v2_1.logger.error('Error marking read:', err);
         throw new v2_1.https.HttpsError('internal', 'Failed to mark as read.');
+    }
+});
+exports.assignConversation = v2_1.https.onCall(async (request) => {
+    const authToken = await (0, auth_1.verifyAuth)(request);
+    const parsed = assignConversationSchema.safeParse(request.data);
+    if (!parsed.success) {
+        throw new v2_1.https.HttpsError('invalid-argument', parsed.error.message);
+    }
+    const { conversationId, assignedTo, assignedToName } = parsed.data;
+    try {
+        await assertConversationOwner(conversationId, authToken.uid);
+        await firebase_admin_1.adminDb.collection('conversations').doc(conversationId).update({
+            assignedTo,
+            assignedToName,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { assignedTo, assignedToName };
+    }
+    catch (err) {
+        if (err instanceof v2_1.https.HttpsError)
+            throw err;
+        v2_1.logger.error('Error assigning conversation:', err);
+        throw new v2_1.https.HttpsError('internal', 'Failed to assign conversation.');
     }
 });
 //# sourceMappingURL=manageConversations.js.map

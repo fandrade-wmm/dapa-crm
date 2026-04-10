@@ -16,10 +16,6 @@ service firebase.storage {
       return request.resource.size <= 50 * 1024 * 1024; // 50MB
     }
 
-    function isValidImageType() {
-      return request.resource.contentType.matches('image/.*');
-    }
-
     // User profile images
     match /users/{userId}/{allPaths=**} {
       allow read: if isAuthenticated();
@@ -32,10 +28,22 @@ service firebase.storage {
       allow write: if isAuthenticated() && isValidFileSize();
     }
 
-    // Conversation attachments
+    // Conversation media attachments
     match /conversations/{conversationId}/{allPaths=**} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && isValidFileSize();
+    }
+
+    // Chat media uploads (images, videos, voice notes)
+    match /media/{conversationId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidFileSize();
+    }
+
+    // Catalog PDFs
+    match /catalogs/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidFileSize();
     }
   }
 }

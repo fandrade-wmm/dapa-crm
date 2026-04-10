@@ -6,4 +6,5 @@ export {
   toggleConversationAI,
   updateConversationLabels,
   markConversationRead,
+  assignConversation,
 } from './manageConversations';

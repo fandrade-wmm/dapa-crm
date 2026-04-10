@@ -1,16 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Search, MessageSquare, Phone, ChevronRight, Tag, Bot } from 'lucide-react';
-import { conversationsApi, type Conversation, type ConversationChannel, type ConversationStatus } from '@/lib/api';
+import { Search, MessageSquare, Phone, ChevronRight, Tag, Bot, UserCheck } from 'lucide-react';
+import { conversationsApi, agentsApi, type Conversation, type ConversationChannel, type ConversationStatus, type AgentInfo } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+
+// Firestore Timestamps come as { seconds, nanoseconds } — convert safely
+function toDate(value: unknown): Date {
+  if (!value) return new Date();
+  if (value instanceof Date) return value;
+  if (typeof value === 'object' && value !== null && 'seconds' in value) {
+    return new Date((value as { seconds: number }).seconds * 1000);
+  }
+  const d = new Date(value as string | number);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
 
 const AVAILABLE_LABELS = ['Interesado', 'Cotización enviada', 'Compró', 'Seguimiento', 'Sin stock', 'VIP'];
 const LABEL_COLORS: Record<string, string> = {
@@ -40,6 +52,20 @@ function ChannelIcon({ channel }: { channel: string }) {
   );
 }
 
+function AgentAvatar({ name }: { name: string | null }) {
+  const initials = name
+    ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+    : '?';
+  return (
+    <span
+      className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[9px] font-bold shrink-0"
+      title={name ?? 'Asignado'}
+    >
+      {initials}
+    </span>
+  );
+}
+
 function ConversationRow({ conv, onClick }: { conv: Conversation; onClick: () => void }) {
   const initial = conv.customerName?.charAt(0).toUpperCase();
   const displayName = conv.customerName ?? conv.customerPhone;
@@ -48,8 +74,10 @@ function ConversationRow({ conv, onClick }: { conv: Conversation; onClick: () =>
     <div
       onClick={onClick}
       className={cn(
-        'p-4 sm:p-5 hover:bg-slate-50 transition-colors cursor-pointer group',
-        conv.unreadCount > 0 && 'bg-blue-50/40'
+        'p-4 sm:p-5 transition-colors cursor-pointer group',
+        conv.unreadCount > 0
+          ? 'bg-slate-100 hover:bg-slate-200/70'
+          : 'hover:bg-slate-50'
       )}
     >
       <div className="flex items-center justify-between gap-3">
@@ -79,6 +107,9 @@ function ConversationRow({ conv, onClick }: { conv: Conversation; onClick: () =>
               <span className={cn('font-semibold text-sm', conv.unreadCount > 0 && 'text-blue-900')}>
                 {displayName}
               </span>
+              {conv.customerPhone && (
+                <span className="text-[11px] text-muted-foreground font-normal">+{conv.customerPhone.replace(/^\+/, '')}</span>
+              )}
               <ChannelIcon channel={conv.channel} />
               <Badge
                 variant={conv.status === 'active' ? 'default' : 'secondary'}
@@ -90,6 +121,12 @@ function ConversationRow({ conv, onClick }: { conv: Conversation; onClick: () =>
                 <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1">
                   <Bot className="w-2.5 h-2.5" /> AI
                 </Badge>
+              )}
+              {conv.assignedTo && (
+                <span className="flex items-center gap-1 text-[10px] text-indigo-600 font-medium">
+                  <AgentAvatar name={conv.assignedToName ?? null} />
+                  <span className="hidden sm:inline truncate max-w-[80px]">{conv.assignedToName ?? 'Asignado'}</span>
+                </span>
               )}
             </div>
             {conv.labels.length > 0 && (
@@ -110,8 +147,8 @@ function ConversationRow({ conv, onClick }: { conv: Conversation; onClick: () =>
         {/* Timestamp + arrow */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right hidden sm:block">
-            <p className="text-xs font-medium">{format(new Date(conv.updatedAt), 'd MMM')}</p>
-            <p className="text-xs text-muted-foreground">{format(new Date(conv.updatedAt), 'HH:mm')}</p>
+            <p className="text-xs font-medium">{format(toDate(conv.updatedAt), 'd MMM')}</p>
+            <p className="text-xs text-muted-foreground">{format(toDate(conv.updatedAt), 'HH:mm')}</p>
           </div>
           <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors text-slate-400">
             <ChevronRight className="w-4 h-4" />
@@ -124,21 +161,43 @@ function ConversationRow({ conv, onClick }: { conv: Conversation; onClick: () =>
 
 export default function ConversationsPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [channel, setChannel] = useState<ConversationChannel>('all');
   const [status, setStatus] = useState<ConversationStatus>('all');
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  const [onlyUnread, setOnlyUnread] = useState(false);
+  const [assignedFilter, setAssignedFilter] = useState<'all' | 'me' | 'unassigned' | string>('all');
+
+  // Debounce: only trigger query 400ms after the user stops typing
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const { data: conversations = [], isLoading, error } = useQuery({
-    queryKey: ['conversations', search, channel, status],
-    queryFn: () => conversationsApi.getAll({ search: search || undefined, channel, status }),
+    queryKey: ['conversations', debouncedSearch, channel, status],
+    queryFn: () => conversationsApi.getAll({ search: debouncedSearch || undefined, channel, status }),
     refetchInterval: 20_000,
     staleTime: 15_000,
   });
 
-  const filtered = activeLabel
-    ? conversations.filter((c) => c.labels.includes(activeLabel))
-    : conversations;
+  const { data: agents = [] } = useQuery({
+    queryKey: ['activeAgents'],
+    queryFn: () => agentsApi.getAll(),
+    staleTime: 60_000,
+  });
+
+  const filtered = conversations
+    .filter((c) => !activeLabel || c.labels.includes(activeLabel))
+    .filter((c) => !onlyUnread || (c.unreadCount ?? 0) > 0)
+    .filter((c) => {
+      if (assignedFilter === 'all') return true;
+      if (assignedFilter === 'me') return c.assignedTo === user?.uid;
+      if (assignedFilter === 'unassigned') return !c.assignedTo;
+      return c.assignedTo === assignedFilter;
+    });
 
   const waCount = conversations.filter((c) => c.channel === 'whatsapp').length;
   const igCount = conversations.filter((c) => c.channel === 'instagram').length;
@@ -221,7 +280,49 @@ export default function ConversationsPage() {
             {label}
           </button>
         ))}
+        <button
+          onClick={() => setOnlyUnread((v) => !v)}
+          className={cn(
+            'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors flex items-center gap-1.5',
+            onlyUnread
+              ? 'bg-rose-500 text-white border-rose-500'
+              : 'bg-background text-muted-foreground border-border hover:border-rose-300'
+          )}
+        >
+          {unreadTotal > 0 && (
+            <span className={cn('w-2 h-2 rounded-full', onlyUnread ? 'bg-white' : 'bg-rose-500 animate-pulse')} />
+          )}
+          No leídos{unreadTotal > 0 ? ` (${unreadTotal})` : ''}
+        </button>
       </div>
+
+      {/* Assignment filter */}
+      {agents.length > 0 && (
+        <div className="flex gap-2 flex-wrap items-center">
+          <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+            <UserCheck className="w-3.5 h-3.5" /> Asignado a:
+          </span>
+          {([
+            { key: 'all', label: 'Todos' },
+            { key: 'me', label: 'Yo' },
+            { key: 'unassigned', label: 'Sin asignar' },
+            ...agents.map((a: AgentInfo) => ({ key: a.id, label: a.displayName ?? a.email })),
+          ] as { key: string; label: string }[]).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setAssignedFilter(key)}
+              className={cn(
+                'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
+                assignedFilter === key
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-background text-muted-foreground border-border hover:border-indigo-300'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative max-w-md">

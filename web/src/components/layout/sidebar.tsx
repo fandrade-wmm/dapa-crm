@@ -11,6 +11,9 @@ import {
   Zap,
   UserCog,
   Contact,
+  Smartphone,
+  BookOpen,
+  UserRound,
 } from 'lucide-react';
 
 const navItems = [
@@ -23,6 +26,11 @@ const navItems = [
     label: 'Conversaciones',
     href: '/conversations',
     icon: MessageSquare,
+  },
+  {
+    label: 'Clientes',
+    href: '/clients',
+    icon: UserRound,
   },
   {
     label: 'CRM',
@@ -48,6 +56,16 @@ const navItems = [
     label: 'Automatizaciones',
     href: '/automations',
     icon: UserCog,
+  },
+  {
+    label: 'Catálogos',
+    href: '/catalogs',
+    icon: BookOpen,
+  },
+  {
+    label: 'WhatsApp',
+    href: '/settings/whatsapp',
+    icon: Smartphone,
   },
   {
     label: 'Configuración',

@@ -196,6 +196,7 @@ export interface Conversation {
   id: string;
   customerPhone: string;
   customerName: string | null;
+  contactId?: string;
   status: 'active' | 'resolved';
   aiEnabled: boolean;
   labels: string[];
@@ -203,6 +204,8 @@ export interface Conversation {
   channel: 'whatsapp' | 'instagram';
   lastMessage: string | null;
   ownerId: string;
+  assignedTo: string | null;
+  assignedToName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -211,7 +214,9 @@ export interface ConversationMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  messageType: 'text' | 'image' | 'video' | 'document' | 'note';
+  messageType: 'text' | 'image' | 'video' | 'document' | 'audio' | 'sticker' | 'note';
+  mediaUrl?: string;
+  filename?: string;
   isInternalNote: boolean;
   createdAt: string;
 }
@@ -258,6 +263,11 @@ const markConversationReadFn = httpsCallable<
   { success: boolean }
 >(functions, 'markConversationRead');
 
+const assignConversationFn = httpsCallable<
+  { conversationId: string; assignedTo: string | null; assignedToName: string | null },
+  { assignedTo: string | null; assignedToName: string | null }
+>(functions, 'assignConversation');
+
 export const conversationsApi = {
   getAll: async (params?: {
     search?: string;
@@ -289,6 +299,31 @@ export const conversationsApi = {
   },
   markRead: async (conversationId: string): Promise<{ success: boolean }> => {
     const result = await markConversationReadFn({ conversationId });
+    return result.data;
+  },
+  assign: async (
+    conversationId: string,
+    assignedTo: string | null,
+    assignedToName: string | null
+  ): Promise<{ assignedTo: string | null; assignedToName: string | null }> => {
+    const result = await assignConversationFn({ conversationId, assignedTo, assignedToName });
+    return result.data;
+  },
+};
+
+// ---------- Active Agents (lightweight, any auth user) ----------
+
+export interface AgentInfo {
+  id: string;
+  displayName: string | null;
+  email: string;
+}
+
+const getActiveAgentsFn = httpsCallable<Record<string, never>, AgentInfo[]>(functions, 'getActiveAgents');
+
+export const agentsApi = {
+  getAll: async (): Promise<AgentInfo[]> => {
+    const result = await getActiveAgentsFn({});
     return result.data;
   },
 };
@@ -417,5 +452,162 @@ export const automationsApi = {
   },
   delete: async (id: string): Promise<void> => {
     await deleteAutomationFn({ id });
+  },
+};
+
+// ---------- Clients (Contacts) ----------
+
+export interface Contact {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  fullName: string;
+  cedulaRuc: string | null;
+  email: string | null;
+  phone: string | null;
+  phoneNormalized: string | null;
+  address: string | null;
+  city: string | null;
+  company: string | null;
+  tags: string[];
+  source: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateContactInput = {
+  firstName: string;
+  lastName?: string | null;
+  cedulaRuc?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  company?: string | null;
+  tags?: string[];
+};
+
+export type UpdateContactInput = Partial<CreateContactInput> & { id: string };
+
+const getContactsFn = httpsCallable<{ limit?: number; search?: string }, Contact[]>(functions, 'getContacts');
+const getContactByPhoneFn = httpsCallable<{ phone: string }, Contact | null>(functions, 'getContactByPhone');
+const createContactFn = httpsCallable<CreateContactInput, Contact>(functions, 'createContact');
+const updateContactFn = httpsCallable<UpdateContactInput, Contact>(functions, 'updateContact');
+const deleteContactFn = httpsCallable<{ id: string }, { success: boolean }>(functions, 'deleteContact');
+const deduplicateContactsFn = httpsCallable<Record<string, never>, { merged: number; deleted: number }>(functions, 'deduplicateContacts');
+
+export const clientsApi = {
+  getAll: async (search?: string): Promise<Contact[]> => {
+    const result = await getContactsFn({ limit: 200, search });
+    return result.data;
+  },
+  getByPhone: async (phone: string): Promise<Contact | null> => {
+    const result = await getContactByPhoneFn({ phone });
+    return result.data;
+  },
+  create: async (input: CreateContactInput): Promise<Contact> => {
+    const result = await createContactFn(input);
+    return result.data;
+  },
+  update: async (input: UpdateContactInput): Promise<Contact> => {
+    const result = await updateContactFn(input);
+    return result.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await deleteContactFn({ id });
+  },
+  deduplicate: async (): Promise<{ merged: number; deleted: number }> => {
+    const result = await deduplicateContactsFn({});
+    return result.data;
+  },
+};
+
+// ---------- Catalogs ----------
+
+export interface Catalog {
+  id: string;
+  name: string;
+  description: string | null;
+  fileUrl: string;
+  fileName: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateCatalogInput = Pick<Catalog, 'name' | 'fileUrl' | 'fileName'> & {
+  description?: string;
+};
+
+const getCatalogsFn = httpsCallable<Record<string, never>, Catalog[]>(functions, 'getCatalogs');
+const createCatalogFn = httpsCallable<CreateCatalogInput, Catalog>(functions, 'createCatalog');
+const updateCatalogFn = httpsCallable<{ id: string; name?: string; description?: string | null }, Catalog>(
+  functions,
+  'updateCatalog'
+);
+const deleteCatalogFn = httpsCallable<{ id: string }, { success: boolean }>(functions, 'deleteCatalog');
+
+export const catalogsApi = {
+  getAll: async (): Promise<Catalog[]> => {
+    const result = await getCatalogsFn({});
+    return result.data;
+  },
+  create: async (input: CreateCatalogInput): Promise<Catalog> => {
+    const result = await createCatalogFn(input);
+    return result.data;
+  },
+  update: async (id: string, updates: { name?: string; description?: string | null }): Promise<Catalog> => {
+    const result = await updateCatalogFn({ id, ...updates });
+    return result.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await deleteCatalogFn({ id });
+  },
+};
+
+// ---------- Send Media ----------
+
+export type MediaType = 'image' | 'video' | 'document' | 'audio';
+
+export interface SendMediaInput {
+  mediaUrl: string;
+  mediaType: MediaType;
+  caption?: string;
+  filename?: string;
+}
+
+const sendMediaFn = httpsCallable<{ conversationId: string } & SendMediaInput, { id: string; sent: boolean }>(
+  functions,
+  'sendMedia'
+);
+
+export const mediaApi = {
+  send: async (conversationId: string, input: SendMediaInput): Promise<{ id: string; sent: boolean }> => {
+    const result = await sendMediaFn({ conversationId, ...input });
+    return result.data;
+  },
+};
+
+// ---------- Whapi / WhatsApp ----------
+
+export type WhapiStatus = 'active' | 'loading' | 'qr' | 'offline' | 'not_configured';
+
+export interface WhapiStatusResult {
+  status: WhapiStatus;
+  phone?: string;
+  name?: string;
+  qrCode?: string;
+}
+
+const getWhapiStatusFn = httpsCallable<void, WhapiStatusResult>(
+  functions,
+  'getWhapiStatus'
+);
+
+export const whapiApi = {
+  getStatus: async (): Promise<WhapiStatusResult> => {
+    const result = await getWhapiStatusFn();
+    return result.data;
   },
 };

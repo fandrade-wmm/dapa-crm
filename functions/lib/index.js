@@ -1,13 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteAutomation = exports.updateAutomation = exports.createAutomation = exports.getAutomations = exports.removeTeamMember = exports.updateTeamMember = exports.inviteTeamMember = exports.getTeam = exports.markConversationRead = exports.updateConversationLabels = exports.toggleConversationAI = exports.addNote = exports.sendMessage = exports.getConversation = exports.getConversations = exports.toggleBot = exports.getStats = exports.deleteQuickResponse = exports.updateQuickResponse = exports.createQuickResponse = exports.getQuickResponses = exports.deleteTemplate = exports.updateTemplate = exports.createTemplate = exports.getTemplates = exports.deleteLead = exports.updateLead = exports.createLead = exports.getLeads = exports.deleteContact = exports.updateContact = exports.createContact = exports.getContacts = exports.createUserAdmin = void 0;
+exports.deleteCatalog = exports.updateCatalog = exports.createCatalog = exports.getCatalogs = exports.sendMedia = exports.getWhapiStatus = exports.whapiWebhook = exports.deleteAutomation = exports.updateAutomation = exports.createAutomation = exports.getAutomations = exports.removeTeamMember = exports.updateTeamMember = exports.inviteTeamMember = exports.getTeam = exports.getActiveAgents = exports.assignConversation = exports.markConversationRead = exports.updateConversationLabels = exports.toggleConversationAI = exports.addNote = exports.sendMessage = exports.getConversation = exports.getConversations = exports.toggleBot = exports.getStats = exports.deleteQuickResponse = exports.updateQuickResponse = exports.createQuickResponse = exports.getQuickResponses = exports.deleteTemplate = exports.updateTemplate = exports.createTemplate = exports.getTemplates = exports.deleteLead = exports.updateLead = exports.createLead = exports.getLeads = exports.deduplicateContacts = exports.deleteContact = exports.updateContact = exports.createContact = exports.getContactByPhone = exports.getContacts = exports.createUserAdmin = void 0;
 var users_1 = require("./users");
 Object.defineProperty(exports, "createUserAdmin", { enumerable: true, get: function () { return users_1.createUserAdmin; } });
 var contacts_1 = require("./contacts");
 Object.defineProperty(exports, "getContacts", { enumerable: true, get: function () { return contacts_1.getContacts; } });
+Object.defineProperty(exports, "getContactByPhone", { enumerable: true, get: function () { return contacts_1.getContactByPhone; } });
 Object.defineProperty(exports, "createContact", { enumerable: true, get: function () { return contacts_1.createContact; } });
 Object.defineProperty(exports, "updateContact", { enumerable: true, get: function () { return contacts_1.updateContact; } });
 Object.defineProperty(exports, "deleteContact", { enumerable: true, get: function () { return contacts_1.deleteContact; } });
+Object.defineProperty(exports, "deduplicateContacts", { enumerable: true, get: function () { return contacts_1.deduplicateContacts; } });
 var leads_1 = require("./leads");
 Object.defineProperty(exports, "getLeads", { enumerable: true, get: function () { return leads_1.getLeads; } });
 Object.defineProperty(exports, "createLead", { enumerable: true, get: function () { return leads_1.createLead; } });
@@ -34,7 +36,9 @@ Object.defineProperty(exports, "addNote", { enumerable: true, get: function () {
 Object.defineProperty(exports, "toggleConversationAI", { enumerable: true, get: function () { return conversations_1.toggleConversationAI; } });
 Object.defineProperty(exports, "updateConversationLabels", { enumerable: true, get: function () { return conversations_1.updateConversationLabels; } });
 Object.defineProperty(exports, "markConversationRead", { enumerable: true, get: function () { return conversations_1.markConversationRead; } });
+Object.defineProperty(exports, "assignConversation", { enumerable: true, get: function () { return conversations_1.assignConversation; } });
 var team_1 = require("./team");
+Object.defineProperty(exports, "getActiveAgents", { enumerable: true, get: function () { return team_1.getActiveAgents; } });
 Object.defineProperty(exports, "getTeam", { enumerable: true, get: function () { return team_1.getTeam; } });
 Object.defineProperty(exports, "inviteTeamMember", { enumerable: true, get: function () { return team_1.inviteTeamMember; } });
 Object.defineProperty(exports, "updateTeamMember", { enumerable: true, get: function () { return team_1.updateTeamMember; } });
@@ -44,4 +48,13 @@ Object.defineProperty(exports, "getAutomations", { enumerable: true, get: functi
 Object.defineProperty(exports, "createAutomation", { enumerable: true, get: function () { return automations_1.createAutomation; } });
 Object.defineProperty(exports, "updateAutomation", { enumerable: true, get: function () { return automations_1.updateAutomation; } });
 Object.defineProperty(exports, "deleteAutomation", { enumerable: true, get: function () { return automations_1.deleteAutomation; } });
+var whapi_1 = require("./handlers/whapi");
+Object.defineProperty(exports, "whapiWebhook", { enumerable: true, get: function () { return whapi_1.whapiWebhook; } });
+Object.defineProperty(exports, "getWhapiStatus", { enumerable: true, get: function () { return whapi_1.getWhapiStatus; } });
+Object.defineProperty(exports, "sendMedia", { enumerable: true, get: function () { return whapi_1.sendMedia; } });
+var catalogs_1 = require("./catalogs");
+Object.defineProperty(exports, "getCatalogs", { enumerable: true, get: function () { return catalogs_1.getCatalogs; } });
+Object.defineProperty(exports, "createCatalog", { enumerable: true, get: function () { return catalogs_1.createCatalog; } });
+Object.defineProperty(exports, "updateCatalog", { enumerable: true, get: function () { return catalogs_1.updateCatalog; } });
+Object.defineProperty(exports, "deleteCatalog", { enumerable: true, get: function () { return catalogs_1.deleteCatalog; } });
 //# sourceMappingURL=index.js.map
