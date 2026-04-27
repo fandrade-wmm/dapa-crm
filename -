@@ -1,0 +1,23 @@
+{"users": [
+{
+  "localId": "f8jtAwVKPrUNDMRCW3hwO3KTeK12",
+  "email": "fandrade@webmymoney.com",
+  "emailVerified": true,
+  "passwordHash": "f5XY3UzXpJ6PTyVNlC3wC+tDongmC/ZyiGTcIaJig+dGcUl1FZBHnYgi72GsYlmcjmHV5oU7XHrcEKJpZX3Z3Q==",
+  "salt": "f9RU6+MU88jAUA==",
+  "lastSignedInAt": "1775691514264",
+  "createdAt": "1774911742074",
+  "disabled": false,
+  "providerUserInfo": []
+},
+{
+  "localId": "g1HAgU4ZfnUI80ljMwB0ih6BYjD3",
+  "email": "admin@webmymoney.com",
+  "emailVerified": true,
+  "passwordHash": "ARkn4kCOb+rey8ZdcziPB5vTRINhXS6A7PTjXOV2R82/Ick0F9Wna7K3bYzeSIowC5V2DN1ROmeT8NAUpPk33g==",
+  "salt": "P1gXr0EFYHD1zQ==",
+  "displayName": "Admin",
+  "createdAt": "1774205022391",
+  "disabled": false,
+  "providerUserInfo": []
+}]}

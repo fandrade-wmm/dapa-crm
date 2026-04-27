@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase';
+import { createClient } from '@/lib/supabase/client';
 import {
   ArrowLeft,
   Send,
@@ -787,20 +786,15 @@ export default function ConversationDetailPage() {
     setIsUploading(true);
     setUploadProgress(0);
     try {
+      const supabase = createClient();
       const path = `media/${id}/${Date.now()}_${file.name}`;
-      const sRef = storageRef(storage, path);
-      const task = uploadBytesResumable(sRef, file);
-
-      await new Promise<void>((resolve, reject) => {
-        task.on(
-          'state_changed',
-          (snap) => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
-          reject,
-          resolve
-        );
-      });
-
-      const url = await getDownloadURL(sRef);
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(path, file, { upsert: false });
+      if (uploadError) throw new Error(uploadError.message);
+      setUploadProgress(100);
+      const { data: urlData } = supabase.storage.from('media').getPublicUrl(path);
+      const url = urlData.publicUrl;
       await sendMediaMutation.mutateAsync({ mediaUrl: url, mediaType, filename });
     } catch (err) {
       toast({ title: 'Error al subir', description: (err as Error).message, variant: 'destructive' });
