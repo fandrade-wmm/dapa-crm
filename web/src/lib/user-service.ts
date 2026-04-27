@@ -1,11 +1,21 @@
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from './firebase';
+import { createClient } from '@/lib/supabase/client';
 import type { User } from './types';
 
 export async function getUserById(uid: string): Promise<User> {
-  const db = getFirestore(app);
-  const docRef = doc(db, 'users', uid);
-  const snap = await getDoc(docRef);
-  if (!snap.exists()) throw new Error('User not found');
-  return { uid, ...(snap.data() as Omit<User, 'uid'>) };
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', uid)
+    .single();
+  if (error || !data) throw new Error('User not found');
+  return {
+    uid: data.id,
+    email: data.email,
+    displayName: data.display_name ?? null,
+    photoURL: null,
+    role: data.role,
+    isActive: data.is_active ?? true,
+    createdAt: data.created_at,
+  };
 }

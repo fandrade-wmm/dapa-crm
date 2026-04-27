@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { firebaseUser, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !firebaseUser) {
+    if (!loading && !user) {
       router.replace('/login');
     }
-  }, [loading, firebaseUser, router]);
+  }, [loading, user, router]);
 
   if (loading) {
     return (
@@ -25,7 +25,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!firebaseUser) {
+  if (!user) {
     // Will be redirected by the useEffect above
     return null;
   }

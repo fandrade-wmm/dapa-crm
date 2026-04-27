@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/hooks/use-auth';
-import { storage } from '@/lib/firebase';
+import { createClient } from '@/lib/supabase/client';
 import { catalogsApi, type Catalog } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -55,25 +54,15 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
 
     setIsUploading(true);
     try {
-      const path = `catalogs/${user.uid}/${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, path);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      await new Promise<void>((resolve, reject) => {
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            setProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
-          },
-          (err) => {
-            console.error('Storage upload error:', err);
-            reject(err);
-          },
-          resolve
-        );
-      });
-
-      const fileUrl = await getDownloadURL(storageRef);
+      const supabase = createClient();
+      const path = `catalogs/${user.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(path, file, { upsert: false });
+      if (uploadError) throw new Error(uploadError.message);
+      setProgress(100);
+      const { data: urlData } = supabase.storage.from('media').getPublicUrl(path);
+      const fileUrl = urlData.publicUrl;
       await createMutation.mutateAsync({
         name: name.trim(),
         description: description.trim() || undefined,

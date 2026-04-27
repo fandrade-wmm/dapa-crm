@@ -12,7 +12,7 @@ import { useAuth } from '@/context/auth-context';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { firebaseUser, loading } = useAuth();
+  const { user, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -25,16 +25,17 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
-    if (!loading && firebaseUser) {
+    if (!loading && user) {
       router.replace('/dashboard');
     }
-  }, [loading, firebaseUser, router]);
+  }, [loading, user, router]);
 
   async function onSubmit(data: LoginFormData) {
     setServerError(null);
     try {
       await signIn(data.email, data.password);
       router.push('/dashboard');
+      router.refresh();
     } catch (err) {
       setServerError('Email o contraseña incorrectos. Inténtalo de nuevo.');
       console.error('Login error:', err);

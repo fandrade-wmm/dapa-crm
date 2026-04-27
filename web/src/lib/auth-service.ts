@@ -1,18 +1,19 @@
-import {
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  sendPasswordResetEmail,
-} from 'firebase/auth';
-import { auth } from './firebase';
+import { createClient } from '@/lib/supabase/client';
 
 export async function signIn(email: string, password: string) {
-  return signInWithEmailAndPassword(auth, email, password);
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return data;
 }
 
 export async function signOut() {
-  return firebaseSignOut(auth);
+  const supabase = createClient();
+  await supabase.auth.signOut();
 }
 
 export async function sendPasswordReset(email: string) {
-  return sendPasswordResetEmail(auth, email);
+  const supabase = createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  if (error) throw error;
 }

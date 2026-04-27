@@ -7,57 +7,67 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import { getUserById } from '@/lib/user-service';
 import type { User } from '@/lib/types';
 
 interface AuthContextValue {
-  firebaseUser: FirebaseUser | null;
-  user: User | null;
+  user: SupabaseUser | null;
+  profile: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
-  firebaseUser: null,
   user: null,
+  profile: null,
   loading: true,
   signOut: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setFirebaseUser(fbUser);
+    const supabase = createClient();
 
-      if (fbUser) {
-        try {
-          const userData = await getUserById(fbUser.uid);
-          setUser(userData);
-        } catch {
-          setUser(null);
-        }
-      } else {
-        setUser(null);
+    supabase.auth.getUser().then(({ data: { user: u } }) => {
+      setUser(u ?? null);
+      if (u) {
+        getUserById(u.id).then(setProfile).catch(() => setProfile(null));
       }
-
       setLoading(false);
     });
 
-    return unsubscribe;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) {
+        try {
+          const p = await getUserById(u.id);
+          setProfile(p);
+        } catch {
+          setProfile(null);
+        }
+      } else {
+        setProfile(null);
+      }
+      setLoading(false);
+    });
+
+    return () => { subscription.unsubscribe(); };
   }, []);
 
   async function handleSignOut() {
-    await firebaseSignOut(auth);
+    const supabase = createClient();
+    await supabase.auth.signOut();
   }
 
   return (
-    <AuthContext.Provider value={{ firebaseUser, user, loading, signOut: handleSignOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, signOut: handleSignOut }}>
       {children}
     </AuthContext.Provider>
   );

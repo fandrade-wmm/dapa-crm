@@ -1,0 +1,85 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { sendText, sendMedia, toEvolutionNumber, MediaType } from '@/lib/evolution-client';
+import { z } from 'zod';
+
+const SendSchema = z.object({
+  conversationId: z.string().uuid(),
+  content:        z.string().min(1),
+  type:           z.enum(['text', 'image', 'video', 'document', 'audio']).default('text'),
+  mediaUrl:       z.string().url().optional(),
+  filename:       z.string().optional(),
+});
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Auth check
+  const supabase = await createClient();
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Validate input
+  const parsed = SendSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  const { conversationId, content, type, mediaUrl, filename } = parsed.data;
+
+  const service = await createServiceClient();
+
+  // Get customer phone from conversation
+  const { data: conv, error: convErr } = await service
+    .from('conversations')
+    .select('customer_phone')
+    .eq('id', conversationId)
+    .single();
+  if (convErr || !conv) {
+    return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+  }
+
+  const to = toEvolutionNumber(conv.customer_phone);
+
+  try {
+    let msgId: string | undefined;
+
+    if (type === 'text') {
+      const r = await sendText(to, content);
+      msgId = r.key?.id;
+    } else {
+      if (!mediaUrl) {
+        return NextResponse.json({ error: 'mediaUrl required for non-text messages' }, { status: 400 });
+      }
+      const r = await sendMedia(to, type as MediaType, mediaUrl, content || undefined, filename);
+      msgId = r.key?.id;
+    }
+
+    // Persist in Supabase
+    const { data: msg, error: insertErr } = await service
+      .from('messages')
+      .insert({
+        conversation_id:      conversationId,
+        role:                 'assistant',
+        content,
+        message_type:         type,
+        is_internal_note:     false,
+        ...(msgId    ? { evolution_message_id: msgId } : {}),
+        ...(mediaUrl ? { media_url: mediaUrl }         : {}),
+        ...(filename ? { filename }                    : {}),
+      })
+      .select('id')
+      .single();
+
+    if (insertErr) throw new Error(insertErr.message);
+
+    await service
+      .from('conversations')
+      .update({ last_message: content, last_message_at: new Date().toISOString() })
+      .eq('id', conversationId);
+
+    return NextResponse.json({ id: msg.id });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
