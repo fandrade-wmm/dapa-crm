@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 
 export function Header() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { profile } = useAuth();
 
   async function handleSignOut() {
     try {
@@ -23,10 +23,10 @@ export function Header() {
       <div />
 
       <div className="flex items-center gap-4">
-        {user && (
+        {profile && (
           <div className="flex items-center gap-2 text-sm">
             <User className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">{user.displayName ?? user.email}</span>
+            <span className="text-muted-foreground">{profile.displayName ?? profile.email}</span>
           </div>
         )}
         <button

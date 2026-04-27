@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 
 export default function HomePage() {
-  const { firebaseUser, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
-      router.replace(firebaseUser ? '/dashboard' : '/login');
+      router.replace(user ? '/dashboard' : '/login');
     }
-  }, [loading, firebaseUser, router]);
+  }, [loading, user, router]);
 
   return (
     <div className="flex h-screen items-center justify-center bg-background">
