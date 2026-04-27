@@ -53,8 +53,10 @@ const statusConfig: Record<
 // ---------- Webhook URL helper ----------
 
 function getWebhookUrl(): string {
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'YOUR_PROJECT_ID';
-  return `https://us-central1-${projectId}.cloudfunctions.net/whapiWebhook`;
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (typeof window !== 'undefined' ? window.location.origin : '');
+  return `${base}/api/webhooks/evolution`;
 }
 
 // ---------- Page ----------
@@ -194,7 +196,7 @@ export default function WhatsAppSettingsPage() {
         <CardHeader>
           <CardTitle className="text-base">URL del Webhook</CardTitle>
           <CardDescription>
-            Configura esta URL en tu panel de Whapi.Cloud para recibir mensajes entrantes.
+            Configura esta URL en Evolution API (Railway → Instancia → Webhooks) para recibir mensajes entrantes.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -226,30 +228,15 @@ export default function WhatsAppSettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-orange-700">
-            <p>Para activar WhatsApp agrega estas variables de entorno:</p>
+            <p>Para activar WhatsApp configura estas variables en Vercel:</p>
             <ol className="ml-4 list-decimal space-y-1">
-              <li>
-                Crea una cuenta en{' '}
-                <a
-                  href="https://whapi.cloud"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
-                  whapi.cloud
-                </a>{' '}
-                y crea un canal
-              </li>
-              <li>
-                Copia tu <strong>API Token</strong> y guárdalo como{' '}
-                <code className="rounded bg-orange-100 px-1">WHAPI_API_TOKEN</code>
-              </li>
-              <li>
-                Copia tu <strong>Firebase UID</strong> (admin) y guárdalo como{' '}
-                <code className="rounded bg-orange-100 px-1">WHAPI_OWNER_ID</code> en{' '}
-                <code className="rounded bg-orange-100 px-1">botConfig/default</code> en Firestore
-              </li>
-              <li>Re-despliega las Cloud Functions</li>
+              <li>Despliega <strong>Evolution API</strong> en Railway (plantilla disponible en evolutionapi.com)</li>
+              <li>Copia la URL de Railway → <code className="rounded bg-orange-100 px-1">EVOLUTION_API_URL</code></li>
+              <li>Copia la API Key → <code className="rounded bg-orange-100 px-1">EVOLUTION_API_KEY</code></li>
+              <li>Define un nombre de instancia (ej. <em>pancho-dapa-crm</em>) → <code className="rounded bg-orange-100 px-1">EVOLUTION_INSTANCE_NAME</code></li>
+              <li>Define un secreto para webhooks → <code className="rounded bg-orange-100 px-1">EVOLUTION_WEBHOOK_SECRET</code></li>
+              <li>En Evolution API, configura el webhook apuntando a la URL mostrada arriba</li>
+              <li>Re-despliega en Vercel — el QR aparecerá aquí para escanear</li>
             </ol>
           </CardContent>
         </Card>
