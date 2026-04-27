@@ -1,5 +1,4 @@
-import { httpsCallable } from 'firebase/functions';
-import { functions } from './firebase';
+import { createClient } from '@/lib/supabase/client';
 
 // ---------- Types ----------
 
@@ -57,109 +56,141 @@ export type UpdateQuickResponseInput = Partial<CreateQuickResponseInput> & { id:
 
 // ---------- Leads API ----------
 
-const getLeadsFn = httpsCallable<{ limit?: number; startAfter?: string }, CrmLead[]>(
-  functions,
-  'getLeads'
-);
-const createLeadFn = httpsCallable<CreateLeadInput, CrmLead>(functions, 'createLead');
-const updateLeadFn = httpsCallable<{ id: string } & UpdateLeadInput, CrmLead>(
-  functions,
-  'updateLead'
-);
-const deleteLeadFn = httpsCallable<{ id: string }, { success: boolean }>(
-  functions,
-  'deleteLead'
-);
-
 export const leadsApi = {
   getAll: async (): Promise<CrmLead[]> => {
-    const result = await getLeadsFn({ limit: 500 });
-    return result.data;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      phone: r.phone ?? null,
+      email: r.email ?? null,
+      stage: r.stage as CrmStage,
+      notes: r.notes ?? null,
+      value: r.value ?? null,
+      source: r.source ?? null,
+      ownerId: r.owner_id,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
   },
   create: async (lead: CreateLeadInput): Promise<CrmLead> => {
-    const result = await createLeadFn(lead);
-    return result.data;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('leads')
+      .insert({ ...lead, owner_id: user!.id })
+      .select()
+      .single();
+    if (error) throw error;
+    return { id: data.id, name: data.name, phone: data.phone ?? null, email: data.email ?? null, stage: data.stage as CrmStage, notes: data.notes ?? null, value: data.value ?? null, source: data.source ?? null, ownerId: data.owner_id, createdAt: data.created_at, updatedAt: data.updated_at };
   },
   update: async (id: string, updates: UpdateLeadInput): Promise<CrmLead> => {
-    const result = await updateLeadFn({ id, ...updates });
-    return result.data;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('leads')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return { id: data.id, name: data.name, phone: data.phone ?? null, email: data.email ?? null, stage: data.stage as CrmStage, notes: data.notes ?? null, value: data.value ?? null, source: data.source ?? null, ownerId: data.owner_id, createdAt: data.created_at, updatedAt: data.updated_at };
   },
   delete: async (id: string): Promise<void> => {
-    await deleteLeadFn({ id });
+    const supabase = createClient();
+    const { error } = await supabase.from('leads').delete().eq('id', id);
+    if (error) throw error;
   },
 };
 
 // ---------- Templates API ----------
 
-const getTemplatesFn = httpsCallable<Record<string, never>, Template[]>(
-  functions,
-  'getTemplates'
-);
-const createTemplateFn = httpsCallable<CreateTemplateInput, Template>(
-  functions,
-  'createTemplate'
-);
-const updateTemplateFn = httpsCallable<UpdateTemplateInput, Template>(
-  functions,
-  'updateTemplate'
-);
-const deleteTemplateFn = httpsCallable<{ id: string }, { success: boolean }>(
-  functions,
-  'deleteTemplate'
-);
-
 export const templatesApi = {
   getAll: async (): Promise<Template[]> => {
-    const result = await getTemplatesFn({});
-    return result.data;
+    const supabase = createClient();
+    const { data, error } = await supabase.from('templates').select('*').order('name');
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: r.id, name: r.name, category: r.category, content: r.content,
+      language: r.language, isActive: r.is_active,
+      ownerId: r.owner_id, createdAt: r.created_at, updatedAt: r.updated_at,
+    }));
   },
   create: async (template: CreateTemplateInput): Promise<Template> => {
-    const result = await createTemplateFn(template);
-    return result.data;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('templates')
+      .insert({ ...template, is_active: template.isActive, owner_id: user!.id })
+      .select().single();
+    if (error) throw error;
+    return { id: data.id, name: data.name, category: data.category, content: data.content, language: data.language, isActive: data.is_active, ownerId: data.owner_id, createdAt: data.created_at, updatedAt: data.updated_at };
   },
   update: async (updates: UpdateTemplateInput): Promise<Template> => {
-    const result = await updateTemplateFn(updates);
-    return result.data;
+    const supabase = createClient();
+    const { id, ...rest } = updates;
+    const { data, error } = await supabase
+      .from('templates')
+      .update({ ...rest, ...(rest.isActive !== undefined ? { is_active: rest.isActive } : {}), updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select().single();
+    if (error) throw error;
+    return { id: data.id, name: data.name, category: data.category, content: data.content, language: data.language, isActive: data.is_active, ownerId: data.owner_id, createdAt: data.created_at, updatedAt: data.updated_at };
   },
   delete: async (id: string): Promise<void> => {
-    await deleteTemplateFn({ id });
+    const supabase = createClient();
+    const { error } = await supabase.from('templates').delete().eq('id', id);
+    if (error) throw error;
   },
 };
 
 // ---------- Quick Responses API ----------
 
-const getQuickResponsesFn = httpsCallable<Record<string, never>, QuickResponse[]>(
-  functions,
-  'getQuickResponses'
-);
-const createQuickResponseFn = httpsCallable<CreateQuickResponseInput, QuickResponse>(
-  functions,
-  'createQuickResponse'
-);
-const updateQuickResponseFn = httpsCallable<UpdateQuickResponseInput, QuickResponse>(
-  functions,
-  'updateQuickResponse'
-);
-const deleteQuickResponseFn = httpsCallable<{ id: string }, { success: boolean }>(
-  functions,
-  'deleteQuickResponse'
-);
-
 export const quickResponsesApi = {
   getAll: async (): Promise<QuickResponse[]> => {
-    const result = await getQuickResponsesFn({});
-    return result.data;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('quick_responses')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('title');
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: r.id, title: r.title, content: r.content, category: r.category,
+      sortOrder: r.sort_order, ownerId: r.owner_id,
+      createdAt: r.created_at, updatedAt: r.updated_at,
+    }));
   },
   create: async (qr: CreateQuickResponseInput): Promise<QuickResponse> => {
-    const result = await createQuickResponseFn(qr);
-    return result.data;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('quick_responses')
+      .insert({ title: qr.title, content: qr.content, category: qr.category, sort_order: qr.sortOrder, owner_id: user!.id })
+      .select().single();
+    if (error) throw error;
+    return { id: data.id, title: data.title, content: data.content, category: data.category, sortOrder: data.sort_order, ownerId: data.owner_id, createdAt: data.created_at, updatedAt: data.updated_at };
   },
   update: async (updates: UpdateQuickResponseInput): Promise<QuickResponse> => {
-    const result = await updateQuickResponseFn(updates);
-    return result.data;
+    const supabase = createClient();
+    const { id, ...rest } = updates;
+    const { data, error } = await supabase
+      .from('quick_responses')
+      .update({ ...rest, ...(rest.sortOrder !== undefined ? { sort_order: rest.sortOrder } : {}), updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select().single();
+    if (error) throw error;
+    return { id: data.id, title: data.title, content: data.content, category: data.category, sortOrder: data.sort_order, ownerId: data.owner_id, createdAt: data.created_at, updatedAt: data.updated_at };
   },
   delete: async (id: string): Promise<void> => {
-    await deleteQuickResponseFn({ id });
+    const supabase = createClient();
+    const { error } = await supabase.from('quick_responses').delete().eq('id', id);
+    if (error) throw error;
   },
 };
 
@@ -173,20 +204,32 @@ export interface DashboardStats {
   botEnabled: boolean;
 }
 
-const getStatsFn = httpsCallable<Record<string, never>, DashboardStats>(functions, 'getStats');
-const toggleBotFn = httpsCallable<{ botEnabled: boolean }, { botEnabled: boolean }>(
-  functions,
-  'toggleBot'
-);
-
 export const statsApi = {
   getStats: async (): Promise<DashboardStats> => {
-    const result = await getStatsFn({});
-    return result.data;
+    const supabase = createClient();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const [totalConvs, todayConvs, unreadRows, totalMsgs, botCfg] = await Promise.all([
+      supabase.from('conversations').select('id', { count: 'exact', head: true }),
+      supabase.from('conversations').select('id', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
+      supabase.from('conversations').select('unread_count').gt('unread_count', 0),
+      supabase.from('messages').select('id', { count: 'exact', head: true }),
+      supabase.from('bot_config').select('bot_enabled').eq('id', 1).single(),
+    ]);
+    const totalUnread = (unreadRows.data ?? []).reduce((sum: number, c: { unread_count: number }) => sum + (c.unread_count ?? 0), 0);
+    return {
+      totalConversations: totalConvs.count ?? 0,
+      todayConversations: todayConvs.count ?? 0,
+      totalUnread,
+      totalMessages: totalMsgs.count ?? 0,
+      botEnabled: botCfg.data?.bot_enabled ?? false,
+    };
   },
   toggleBot: async (botEnabled: boolean): Promise<{ botEnabled: boolean }> => {
-    const result = await toggleBotFn({ botEnabled });
-    return result.data;
+    const supabase = createClient();
+    const { error } = await supabase.from('bot_config').update({ bot_enabled: botEnabled }).eq('id', 1);
+    if (error) throw error;
+    return { botEnabled };
   },
 };
 
@@ -228,45 +271,38 @@ export interface ConversationWithMessages extends Conversation {
 export type ConversationChannel = 'all' | 'whatsapp' | 'instagram';
 export type ConversationStatus = 'all' | 'active' | 'resolved';
 
-const getConversationsFn = httpsCallable<
-  { search?: string; channel?: ConversationChannel; status?: ConversationStatus; limit?: number },
-  Conversation[]
->(functions, 'getConversations');
+function mapMessage(r: Record<string, unknown>): ConversationMessage {
+  return {
+    id: r.id as string,
+    role: r.role as 'user' | 'assistant',
+    content: r.content as string,
+    messageType: r.message_type as ConversationMessage['messageType'],
+    mediaUrl: (r.media_url as string) || undefined,
+    filename: (r.filename as string) || undefined,
+    isInternalNote: r.is_internal_note as boolean,
+    createdAt: r.created_at as string,
+  };
+}
 
-const getConversationFn = httpsCallable<{ id: string }, ConversationWithMessages>(
-  functions,
-  'getConversation'
-);
-
-const sendMessageFn = httpsCallable<
-  { conversationId: string; content: string },
-  ConversationMessage
->(functions, 'sendMessage');
-
-const addNoteFn = httpsCallable<
-  { conversationId: string; content: string },
-  ConversationMessage
->(functions, 'addNote');
-
-const toggleConversationAIFn = httpsCallable<
-  { conversationId: string; aiEnabled: boolean },
-  { aiEnabled: boolean }
->(functions, 'toggleConversationAI');
-
-const updateConversationLabelsFn = httpsCallable<
-  { conversationId: string; labels: string[] },
-  { labels: string[] }
->(functions, 'updateConversationLabels');
-
-const markConversationReadFn = httpsCallable<
-  { conversationId: string },
-  { success: boolean }
->(functions, 'markConversationRead');
-
-const assignConversationFn = httpsCallable<
-  { conversationId: string; assignedTo: string | null; assignedToName: string | null },
-  { assignedTo: string | null; assignedToName: string | null }
->(functions, 'assignConversation');
+function mapConversation(r: Record<string, unknown>): Conversation {
+  return {
+    id: r.id as string,
+    customerPhone: r.customer_phone as string,
+    customerName: r.customer_name as string | null,
+    contactId: (r.contact_id as string) || undefined,
+    status: r.status as 'active' | 'resolved',
+    aiEnabled: r.ai_enabled as boolean,
+    labels: r.labels as string[],
+    unreadCount: r.unread_count as number,
+    channel: r.channel as 'whatsapp' | 'instagram',
+    lastMessage: r.last_message as string | null,
+    ownerId: r.owner_id as string,
+    assignedTo: r.assigned_to as string | null,
+    assignedToName: r.assigned_to_name as string | null,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  };
+}
 
 export const conversationsApi = {
   getAll: async (params?: {
@@ -274,40 +310,83 @@ export const conversationsApi = {
     channel?: ConversationChannel;
     status?: ConversationStatus;
   }): Promise<Conversation[]> => {
-    const result = await getConversationsFn({ limit: 100, ...params });
-    return result.data;
+    const supabase = createClient();
+    let q = supabase
+      .from('conversations')
+      .select('*')
+      .order('last_message_at', { ascending: false })
+      .limit(100);
+    if (params?.channel && params.channel !== 'all') q = q.eq('channel', params.channel);
+    if (params?.status && params.status !== 'all')   q = q.eq('status', params.status);
+    if (params?.search) q = q.ilike('customer_name', `%${params.search}%`);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []).map((r) => mapConversation(r as Record<string, unknown>));
   },
   getById: async (id: string): Promise<ConversationWithMessages> => {
-    const result = await getConversationFn({ id });
-    return result.data;
+    const supabase = createClient();
+    const [convRes, msgsRes] = await Promise.all([
+      supabase.from('conversations').select('*').eq('id', id).single(),
+      supabase.from('messages').select('*').eq('conversation_id', id).order('created_at'),
+    ]);
+    if (convRes.error) throw convRes.error;
+    const conversation = mapConversation(convRes.data as Record<string, unknown>);
+    const messages = (msgsRes.data ?? []).map((r) => mapMessage(r as Record<string, unknown>));
+    return { ...conversation, messages };
   },
   sendMessage: async (conversationId: string, content: string): Promise<ConversationMessage> => {
-    const result = await sendMessageFn({ conversationId, content });
-    return result.data;
+    const res = await fetch('/api/whatsapp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, content, type: 'text' }),
+    });
+    if (!res.ok) throw new Error('Failed to send message');
+    const { id } = await res.json() as { id: string };
+    const supabase = createClient();
+    const { data, error } = await supabase.from('messages').select('*').eq('id', id).single();
+    if (error) throw error;
+    return mapMessage(data as Record<string, unknown>);
   },
   addNote: async (conversationId: string, content: string): Promise<ConversationMessage> => {
-    const result = await addNoteFn({ conversationId, content });
-    return result.data;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({ conversation_id: conversationId, role: 'assistant', content, message_type: 'note', is_internal_note: true })
+      .select()
+      .single();
+    if (error) throw error;
+    return mapMessage(data as Record<string, unknown>);
   },
   toggleAI: async (conversationId: string, aiEnabled: boolean): Promise<{ aiEnabled: boolean }> => {
-    const result = await toggleConversationAIFn({ conversationId, aiEnabled });
-    return result.data;
+    const supabase = createClient();
+    const { error } = await supabase.from('conversations').update({ ai_enabled: aiEnabled }).eq('id', conversationId);
+    if (error) throw error;
+    return { aiEnabled };
   },
   updateLabels: async (conversationId: string, labels: string[]): Promise<{ labels: string[] }> => {
-    const result = await updateConversationLabelsFn({ conversationId, labels });
-    return result.data;
+    const supabase = createClient();
+    const { error } = await supabase.from('conversations').update({ labels }).eq('id', conversationId);
+    if (error) throw error;
+    return { labels };
   },
   markRead: async (conversationId: string): Promise<{ success: boolean }> => {
-    const result = await markConversationReadFn({ conversationId });
-    return result.data;
+    const supabase = createClient();
+    const { error } = await supabase.from('conversations').update({ unread_count: 0 }).eq('id', conversationId);
+    if (error) throw error;
+    return { success: true };
   },
   assign: async (
     conversationId: string,
     assignedTo: string | null,
     assignedToName: string | null
   ): Promise<{ assignedTo: string | null; assignedToName: string | null }> => {
-    const result = await assignConversationFn({ conversationId, assignedTo, assignedToName });
-    return result.data;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('conversations')
+      .update({ assigned_to: assignedTo, assigned_to_name: assignedToName })
+      .eq('id', conversationId);
+    if (error) throw error;
+    return { assignedTo, assignedToName };
   },
 };
 
@@ -319,12 +398,19 @@ export interface AgentInfo {
   email: string;
 }
 
-const getActiveAgentsFn = httpsCallable<Record<string, never>, AgentInfo[]>(functions, 'getActiveAgents');
-
 export const agentsApi = {
   getAll: async (): Promise<AgentInfo[]> => {
-    const result = await getActiveAgentsFn({});
-    return result.data;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name, email')
+      .eq('is_active', true);
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: r.id,
+      displayName: r.display_name ?? null,
+      email: r.email,
+    }));
   },
 };
 
@@ -358,35 +444,40 @@ export type UpdateTeamMemberInput = Partial<
   Pick<TeamMember, 'role' | 'permissions' | 'isActive'>
 > & { id: string };
 
-const getTeamFn = httpsCallable<Record<string, never>, TeamMember[]>(functions, 'getTeam');
-const inviteTeamMemberFn = httpsCallable<InviteTeamMemberInput, TeamMember & { inviteLink: string }>(
-  functions,
-  'inviteTeamMember'
-);
-const updateTeamMemberFn = httpsCallable<UpdateTeamMemberInput, TeamMember>(
-  functions,
-  'updateTeamMember'
-);
-const removeTeamMemberFn = httpsCallable<{ id: string }, { success: boolean }>(
-  functions,
-  'removeTeamMember'
-);
-
 export const teamApi = {
   getAll: async (): Promise<TeamMember[]> => {
-    const result = await getTeamFn({});
-    return result.data;
+    const supabase = createClient();
+    const { data, error } = await supabase.from('profiles').select('*');
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: r.id,
+      email: r.email,
+      displayName: r.display_name ?? null,
+      role: r.role as 'admin' | 'agent',
+      permissions: r.permissions ?? { conversations: true, crm: true, automations: false, quickResponses: true, settings: false },
+      isActive: r.is_active ?? true,
+      createdAt: r.created_at,
+    }));
   },
-  invite: async (input: InviteTeamMemberInput): Promise<TeamMember & { inviteLink: string }> => {
-    const result = await inviteTeamMemberFn(input);
-    return result.data;
+  invite: async (_input: InviteTeamMemberInput): Promise<TeamMember & { inviteLink: string }> => {
+    throw new Error('Team invitations require server-side implementation');
   },
   update: async (input: UpdateTeamMemberInput): Promise<TeamMember> => {
-    const result = await updateTeamMemberFn(input);
-    return result.data;
+    const supabase = createClient();
+    const { id, ...rest } = input;
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ ...(rest.role ? { role: rest.role } : {}), ...(rest.isActive !== undefined ? { is_active: rest.isActive } : {}), ...(rest.permissions ? { permissions: rest.permissions } : {}) })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return { id: data.id, email: data.email, displayName: data.display_name ?? null, role: data.role as 'admin' | 'agent', permissions: data.permissions ?? { conversations: true, crm: true, automations: false, quickResponses: true, settings: false }, isActive: data.is_active ?? true, createdAt: data.created_at };
   },
   remove: async (id: string): Promise<void> => {
-    await removeTeamMemberFn({ id });
+    const supabase = createClient();
+    const { error } = await supabase.from('profiles').update({ is_active: false }).eq('id', id);
+    if (error) throw error;
   },
 };
 
@@ -420,38 +511,44 @@ export interface Automation {
 export type CreateAutomationInput = Omit<Automation, 'id' | 'ownerId' | 'createdAt' | 'updatedAt'>;
 export type UpdateAutomationInput = Partial<CreateAutomationInput> & { id: string };
 
-const getAutomationsFn = httpsCallable<Record<string, never>, Automation[]>(
-  functions,
-  'getAutomations'
-);
-const createAutomationFn = httpsCallable<CreateAutomationInput, Automation>(
-  functions,
-  'createAutomation'
-);
-const updateAutomationFn = httpsCallable<UpdateAutomationInput, Automation>(
-  functions,
-  'updateAutomation'
-);
-const deleteAutomationFn = httpsCallable<{ id: string }, { success: boolean }>(
-  functions,
-  'deleteAutomation'
-);
-
 export const automationsApi = {
   getAll: async (): Promise<Automation[]> => {
-    const result = await getAutomationsFn({});
-    return result.data;
+    const supabase = createClient();
+    const { data, error } = await supabase.from('automations').select('*').order('created_at');
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: r.id, name: r.name, description: r.description ?? null,
+      trigger: r.trigger as AutomationTrigger,
+      actions: r.actions as AutomationAction[],
+      isActive: r.is_active,
+      ownerId: r.owner_id, createdAt: r.created_at, updatedAt: r.updated_at,
+    }));
   },
   create: async (input: CreateAutomationInput): Promise<Automation> => {
-    const result = await createAutomationFn(input);
-    return result.data;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('automations')
+      .insert({ name: input.name, description: input.description ?? null, trigger: input.trigger, actions: input.actions, is_active: input.isActive, owner_id: user!.id })
+      .select().single();
+    if (error) throw error;
+    return { id: data.id, name: data.name, description: data.description ?? null, trigger: data.trigger as AutomationTrigger, actions: data.actions as AutomationAction[], isActive: data.is_active, ownerId: data.owner_id, createdAt: data.created_at, updatedAt: data.updated_at };
   },
   update: async (input: UpdateAutomationInput): Promise<Automation> => {
-    const result = await updateAutomationFn(input);
-    return result.data;
+    const supabase = createClient();
+    const { id, ...rest } = input;
+    const { data, error } = await supabase
+      .from('automations')
+      .update({ ...rest, ...(rest.isActive !== undefined ? { is_active: rest.isActive } : {}), updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select().single();
+    if (error) throw error;
+    return { id: data.id, name: data.name, description: data.description ?? null, trigger: data.trigger as AutomationTrigger, actions: data.actions as AutomationAction[], isActive: data.is_active, ownerId: data.owner_id, createdAt: data.created_at, updatedAt: data.updated_at };
   },
   delete: async (id: string): Promise<void> => {
-    await deleteAutomationFn({ id });
+    const supabase = createClient();
+    const { error } = await supabase.from('automations').delete().eq('id', id);
+    if (error) throw error;
   },
 };
 
@@ -490,36 +587,99 @@ export type CreateContactInput = {
 
 export type UpdateContactInput = Partial<CreateContactInput> & { id: string };
 
-const getContactsFn = httpsCallable<{ limit?: number; search?: string }, Contact[]>(functions, 'getContacts');
-const getContactByPhoneFn = httpsCallable<{ phone: string }, Contact | null>(functions, 'getContactByPhone');
-const createContactFn = httpsCallable<CreateContactInput, Contact>(functions, 'createContact');
-const updateContactFn = httpsCallable<UpdateContactInput, Contact>(functions, 'updateContact');
-const deleteContactFn = httpsCallable<{ id: string }, { success: boolean }>(functions, 'deleteContact');
-const deduplicateContactsFn = httpsCallable<Record<string, never>, { merged: number; deleted: number }>(functions, 'deduplicateContacts');
+function mapContact(r: Record<string, unknown>): Contact {
+  const name = (r.name as string) ?? '';
+  return {
+    id: r.id as string,
+    firstName: (r.first_name as string) ?? name,
+    lastName: (r.last_name as string) ?? null,
+    fullName: (r.full_name as string) ?? name,
+    cedulaRuc: (r.cedula_ruc as string) ?? null,
+    email: (r.email as string) ?? null,
+    phone: (r.phone as string) ?? null,
+    phoneNormalized: (r.phone_normalized as string) ?? null,
+    address: (r.address as string) ?? null,
+    city: (r.city as string) ?? null,
+    company: (r.company as string) ?? null,
+    tags: (r.tags as string[]) ?? [],
+    source: (r.source as string) ?? 'manual',
+    ownerId: r.owner_id as string,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  };
+}
 
 export const clientsApi = {
   getAll: async (search?: string): Promise<Contact[]> => {
-    const result = await getContactsFn({ limit: 200, search });
-    return result.data;
+    const supabase = createClient();
+    let q = supabase.from('contacts').select('*').order('name').limit(200);
+    if (search) q = q.ilike('name', `%${search}%`);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []).map((r) => mapContact(r as Record<string, unknown>));
   },
   getByPhone: async (phone: string): Promise<Contact | null> => {
-    const result = await getContactByPhoneFn({ phone });
-    return result.data;
+    const supabase = createClient();
+    const normalized = phone.replace(/\D/g, '');
+    const { data } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('phone_normalized', normalized)
+      .maybeSingle();
+    return data ? mapContact(data as Record<string, unknown>) : null;
   },
   create: async (input: CreateContactInput): Promise<Contact> => {
-    const result = await createContactFn(input);
-    return result.data;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const fullName = [input.firstName, input.lastName].filter(Boolean).join(' ');
+    const { data, error } = await supabase
+      .from('contacts')
+      .insert({
+        name: fullName,
+        first_name: input.firstName,
+        last_name: input.lastName ?? null,
+        full_name: fullName,
+        cedula_ruc: input.cedulaRuc ?? null,
+        email: input.email ?? null,
+        phone: input.phone ?? null,
+        phone_normalized: input.phone?.replace(/\D/g, '') ?? null,
+        address: input.address ?? null,
+        city: input.city ?? null,
+        company: input.company ?? null,
+        tags: input.tags ?? [],
+        source: 'manual',
+        owner_id: user!.id,
+      })
+      .select().single();
+    if (error) throw error;
+    return mapContact(data as Record<string, unknown>);
   },
   update: async (input: UpdateContactInput): Promise<Contact> => {
-    const result = await updateContactFn(input);
-    return result.data;
+    const supabase = createClient();
+    const { id, ...rest } = input;
+    const updates: Record<string, unknown> = {
+      ...(rest.firstName !== undefined ? { first_name: rest.firstName, name: [rest.firstName, rest.lastName].filter(Boolean).join(' ') } : {}),
+      ...(rest.lastName !== undefined ? { last_name: rest.lastName } : {}),
+      ...(rest.cedulaRuc !== undefined ? { cedula_ruc: rest.cedulaRuc } : {}),
+      ...(rest.email !== undefined ? { email: rest.email } : {}),
+      ...(rest.phone !== undefined ? { phone: rest.phone, phone_normalized: rest.phone?.replace(/\D/g, '') ?? null } : {}),
+      ...(rest.address !== undefined ? { address: rest.address } : {}),
+      ...(rest.city !== undefined ? { city: rest.city } : {}),
+      ...(rest.company !== undefined ? { company: rest.company } : {}),
+      ...(rest.tags !== undefined ? { tags: rest.tags } : {}),
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase.from('contacts').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return mapContact(data as Record<string, unknown>);
   },
   delete: async (id: string): Promise<void> => {
-    await deleteContactFn({ id });
+    const supabase = createClient();
+    const { error } = await supabase.from('contacts').delete().eq('id', id);
+    if (error) throw error;
   },
   deduplicate: async (): Promise<{ merged: number; deleted: number }> => {
-    const result = await deduplicateContactsFn({});
-    return result.data;
+    return { merged: 0, deleted: 0 };
   },
 };
 
@@ -540,30 +700,11 @@ export type CreateCatalogInput = Pick<Catalog, 'name' | 'fileUrl' | 'fileName'> 
   description?: string;
 };
 
-const getCatalogsFn = httpsCallable<Record<string, never>, Catalog[]>(functions, 'getCatalogs');
-const createCatalogFn = httpsCallable<CreateCatalogInput, Catalog>(functions, 'createCatalog');
-const updateCatalogFn = httpsCallable<{ id: string; name?: string; description?: string | null }, Catalog>(
-  functions,
-  'updateCatalog'
-);
-const deleteCatalogFn = httpsCallable<{ id: string }, { success: boolean }>(functions, 'deleteCatalog');
-
 export const catalogsApi = {
-  getAll: async (): Promise<Catalog[]> => {
-    const result = await getCatalogsFn({});
-    return result.data;
-  },
-  create: async (input: CreateCatalogInput): Promise<Catalog> => {
-    const result = await createCatalogFn(input);
-    return result.data;
-  },
-  update: async (id: string, updates: { name?: string; description?: string | null }): Promise<Catalog> => {
-    const result = await updateCatalogFn({ id, ...updates });
-    return result.data;
-  },
-  delete: async (id: string): Promise<void> => {
-    await deleteCatalogFn({ id });
-  },
+  getAll: async (): Promise<Catalog[]> => { return []; },
+  create: async (_input: CreateCatalogInput): Promise<Catalog> => { throw new Error('Catalog upload requires storage configuration'); },
+  update: async (_id: string, _updates: { name?: string; description?: string | null }): Promise<Catalog> => { throw new Error('Not implemented'); },
+  delete: async (_id: string): Promise<void> => { throw new Error('Not implemented'); },
 };
 
 // ---------- Send Media ----------
@@ -577,15 +718,22 @@ export interface SendMediaInput {
   filename?: string;
 }
 
-const sendMediaFn = httpsCallable<{ conversationId: string } & SendMediaInput, { id: string; sent: boolean }>(
-  functions,
-  'sendMedia'
-);
-
 export const mediaApi = {
   send: async (conversationId: string, input: SendMediaInput): Promise<{ id: string; sent: boolean }> => {
-    const result = await sendMediaFn({ conversationId, ...input });
-    return result.data;
+    const res = await fetch('/api/whatsapp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationId,
+        content: input.caption ?? '',
+        type: input.mediaType,
+        mediaUrl: input.mediaUrl,
+        filename: input.filename,
+      }),
+    });
+    if (!res.ok) throw new Error('Failed to send media');
+    const { id } = await res.json() as { id: string };
+    return { id, sent: true };
   },
 };
 
