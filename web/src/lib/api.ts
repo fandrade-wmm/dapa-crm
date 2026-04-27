@@ -600,14 +600,10 @@ export interface WhapiStatusResult {
   qrCode?: string;
 }
 
-const getWhapiStatusFn = httpsCallable<void, WhapiStatusResult>(
-  functions,
-  'getWhapiStatus'
-);
-
 export const whapiApi = {
   getStatus: async (): Promise<WhapiStatusResult> => {
-    const result = await getWhapiStatusFn();
-    return result.data;
+    const res = await fetch('/api/whatsapp/status');
+    if (!res.ok) throw new Error('Failed to fetch WhatsApp status');
+    return res.json() as Promise<WhapiStatusResult>;
   },
 };
