@@ -17,7 +17,7 @@
 - **Auth**: Supabase Auth (email/password, cookie-based sessions via `@supabase/ssr`)
 - **Database**: Supabase (PostgreSQL)
 - **Storage**: Supabase Storage (`media` bucket — images, videos, audio, catalog PDFs)
-- **WhatsApp**: Evolution API (hosted on Railway)
+- **WhatsApp**: Meta WhatsApp Cloud API (official Graph API)
 - **Hosting**: Vercel
 - **i18n**: next-intl (`es`/`en`, default `es`, prefix `as-needed`)
 - **Drag & Drop**: @dnd-kit (for Kanban board)
@@ -48,9 +48,10 @@
 ## API Routes
 | Route | Purpose |
 |-------|---------|
-| `POST /api/webhooks/evolution` | Receives incoming WhatsApp messages from Evolution API |
-| `POST /api/whatsapp/send` | Sends a message via Evolution API |
-| `GET  /api/whatsapp/status` | Evolution API connection status |
+| `GET  /api/webhooks/meta` | Meta webhook verification (hub.challenge) |
+| `POST /api/webhooks/meta` | Receives incoming WhatsApp messages from Meta Cloud API |
+| `POST /api/whatsapp/send` | Sends a message via Meta Cloud API |
+| `GET  /api/whatsapp/status` | Meta phone number connection status |
 | `POST /api/team/invite` | Server-side team member invitation (admin only) |
 
 ## Supabase Tables
@@ -79,11 +80,11 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
-EVOLUTION_API_URL=
-EVOLUTION_API_KEY=
-EVOLUTION_INSTANCE_NAME=
-EVOLUTION_WEBHOOK_SECRET=
-EVOLUTION_OWNER_ID=
+META_PHONE_NUMBER_ID=
+META_ACCESS_TOKEN=
+META_APP_SECRET=
+META_VERIFY_TOKEN=
+META_OWNER_ID=
 
 NEXT_PUBLIC_APP_URL=
 ```

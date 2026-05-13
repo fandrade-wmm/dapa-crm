@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
-import { sendText, sendMedia, toEvolutionNumber, MediaType } from '@/lib/evolution-client';
+import { sendText, sendMedia, toE164, type MetaMediaType } from '@/lib/meta-client';
 import { z } from 'zod';
 
 const SendSchema = z.object({
@@ -38,34 +38,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
   }
 
-  const to = toEvolutionNumber(conv.customer_phone);
+  const to = toE164(conv.customer_phone);
 
   try {
-    let msgId: string | undefined;
+    let metaMsgId: string | undefined;
 
     if (type === 'text') {
       const r = await sendText(to, content);
-      msgId = r.key?.id;
+      metaMsgId = r.id;
     } else {
       if (!mediaUrl) {
         return NextResponse.json({ error: 'mediaUrl required for non-text messages' }, { status: 400 });
       }
-      const r = await sendMedia(to, type as MediaType, mediaUrl, content || undefined, filename);
-      msgId = r.key?.id;
+      const r = await sendMedia(to, type as MetaMediaType, mediaUrl, content || undefined, filename);
+      metaMsgId = r.id;
     }
 
     // Persist in Supabase
     const { data: msg, error: insertErr } = await service
       .from('messages')
       .insert({
-        conversation_id:      conversationId,
-        role:                 'assistant',
+        conversation_id:   conversationId,
+        role:              'assistant',
         content,
-        message_type:         type,
-        is_internal_note:     false,
-        ...(msgId    ? { evolution_message_id: msgId } : {}),
-        ...(mediaUrl ? { media_url: mediaUrl }         : {}),
-        ...(filename ? { filename }                    : {}),
+        message_type:      type,
+        is_internal_note:  false,
+        ...(metaMsgId ? { meta_message_id: metaMsgId } : {}),
+        ...(mediaUrl  ? { media_url: mediaUrl }         : {}),
+        ...(filename  ? { filename }                    : {}),
       })
       .select('id')
       .single();

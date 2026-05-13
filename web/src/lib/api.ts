@@ -812,21 +812,20 @@ export const mediaApi = {
   },
 };
 
-// ---------- Whapi / WhatsApp ----------
+// ---------- Meta / WhatsApp ----------
 
-export type WhapiStatus = 'active' | 'loading' | 'qr' | 'offline' | 'not_configured';
+export type MetaStatus = 'active' | 'offline' | 'not_configured';
 
-export interface WhapiStatusResult {
-  status: WhapiStatus;
+export interface MetaStatusResult {
+  status: MetaStatus;
   phone?: string;
   name?: string;
-  qrCode?: string;
 }
 
-export const whapiApi = {
-  getStatus: async (): Promise<WhapiStatusResult> => {
+export const metaApi = {
+  getStatus: async (): Promise<MetaStatusResult> => {
     const res = await fetch('/api/whatsapp/status');
     if (!res.ok) throw new Error('Failed to fetch WhatsApp status');
-    return res.json() as Promise<WhapiStatusResult>;
+    return res.json() as Promise<MetaStatusResult>;
   },
 };
