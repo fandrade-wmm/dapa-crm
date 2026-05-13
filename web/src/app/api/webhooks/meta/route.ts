@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
-import { getMediaUrl, downloadMetaMedia } from '@/lib/meta-client';
+import { getMediaUrl, downloadMetaMedia, type WorkspaceCreds } from '@/lib/meta-client';
 import crypto from 'crypto';
 
 // ── Meta Cloud API payload types ──────────────────────────────
@@ -21,7 +21,6 @@ interface MetaMessage {
   document?: MetaMediaMsg;
   audio?:    MetaMediaMsg;
   sticker?:  MetaMediaMsg;
-  // reactions, location, etc. — we skip these
 }
 
 interface MetaValue {
@@ -39,20 +38,20 @@ interface MetaPayload { object: string; entry: MetaEntry[]; }
 // ── Helpers ───────────────────────────────────────────────────
 
 function toMsgType(t: string): 'text' | 'image' | 'video' | 'document' | 'audio' | 'sticker' {
-  if (t === 'image')             return 'image';
-  if (t === 'video')             return 'video';
-  if (t === 'document')          return 'document';
+  if (t === 'image')                  return 'image';
+  if (t === 'video')                  return 'video';
+  if (t === 'document')               return 'document';
   if (t === 'audio' || t === 'voice') return 'audio';
-  if (t === 'sticker')           return 'sticker';
+  if (t === 'sticker')                return 'sticker';
   return 'text';
 }
 
 function extractContent(msg: MetaMessage): string {
   return (
-    msg.text?.body          ??
-    msg.image?.caption      ??
-    msg.video?.caption      ??
-    msg.document?.caption   ??
+    msg.text?.body        ??
+    msg.image?.caption    ??
+    msg.video?.caption    ??
+    msg.document?.caption ??
     ''
   );
 }
@@ -72,15 +71,25 @@ function getMediaObj(msg: MetaMessage): MetaMediaMsg | null {
 }
 
 function verifySignature(rawBody: string, sigHeader: string | null): boolean {
-  if (!sigHeader || !process.env.META_APP_SECRET) return false;
+  const appSecret = process.env.META_APP_SECRET;
+  if (!sigHeader || !appSecret) return false;
   const expected = `sha256=${crypto
-    .createHmac('sha256', process.env.META_APP_SECRET)
+    .createHmac('sha256', appSecret)
     .update(rawBody)
     .digest('hex')}`;
   const a = Buffer.from(sigHeader);
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
+}
+
+// ── Workspace lookup ──────────────────────────────────────────
+
+interface WorkspaceRow {
+  id:                   string;
+  owner_id:             string;
+  meta_access_token:    string | null;
+  meta_phone_number_id: string | null;
 }
 
 // ── GET — webhook verification ────────────────────────────────
@@ -119,12 +128,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  // Only handle whatsapp_business_account events
   if (payload.object !== 'whatsapp_business_account') {
     return NextResponse.json({ ok: true });
   }
 
-  const ownerId = process.env.META_OWNER_ID!;
   const supabase = await createServiceClient();
 
   for (const entry of payload.entry ?? []) {
@@ -132,6 +139,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (change.field !== 'messages') continue;
       const { value } = change;
       if (!value.messages?.length) continue;
+
+      // 2. Route to the right workspace by phone_number_id
+      const phoneNumberId = value.metadata.phone_number_id;
+      const { data: workspace } = await supabase
+        .from('workspaces')
+        .select('id, owner_id, meta_access_token, meta_phone_number_id')
+        .eq('meta_phone_number_id', phoneNumberId)
+        .maybeSingle() as { data: WorkspaceRow | null };
+
+      // Fall back to env vars if no workspace matches (single-tenant / dev mode)
+      const ownerId = workspace?.owner_id ?? process.env.META_OWNER_ID!;
+      const creds: WorkspaceCreds | undefined = workspace?.meta_access_token
+        ? { phoneNumberId, accessToken: workspace.meta_access_token }
+        : undefined;
+
+      if (!ownerId) {
+        // Can't attribute this message — log to DLQ and skip
+        await supabase.from('_dlq').insert({
+          source:  'metaWebhook',
+          payload: { phoneNumberId } as unknown as Record<string, unknown>,
+          error:   `No workspace found for phone_number_id: ${phoneNumberId}`,
+        });
+        continue;
+      }
 
       // Build name lookup from contacts array
       const nameMap: Record<string, string> = {};
@@ -141,20 +172,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       for (const msg of value.messages) {
         try {
-          const phone    = msg.from;                       // already E.164 digits
+          const phone    = msg.from;
           const name     = nameMap[phone] ?? null;
           const msgType  = toMsgType(msg.type);
           const content  = extractContent(msg);
           const preview  = toPreview(msg);
           const ts       = new Date(Number(msg.timestamp) * 1000).toISOString();
 
-          // ── Media: download from Meta CDN → upload to Supabase Storage ──
+          // 3. Download media → re-upload to Supabase Storage
           let mediaUrl: string | null = null;
           const mediaObj = getMediaObj(msg);
           if (mediaObj?.id) {
             try {
-              const tempUrl = await getMediaUrl(mediaObj.id);
-              const { buffer, contentType } = await downloadMetaMedia(tempUrl);
+              const tempUrl = await getMediaUrl(mediaObj.id, creds);
+              const { buffer, contentType } = await downloadMetaMedia(tempUrl, creds);
               const ext  = contentType.split('/')[1]?.split(';')[0] ?? 'bin';
               const path = `whatsapp/${msg.id}.${ext}`;
               const { data: up } = await supabase.storage
@@ -165,13 +196,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 mediaUrl = pub.publicUrl;
               }
             } catch {
-              // Non-fatal: store message without media URL rather than losing it
+              // Non-fatal: store message without media URL
             }
           }
 
           const filename = msg.document?.filename ?? null;
 
-          // 1. Upsert contact
+          // 4. Upsert contact
           const { data: existing } = await supabase
             .from('contacts')
             .select('id, name')
@@ -206,7 +237,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             contactId = created.id;
           }
 
-          // 2. Upsert conversation
+          // 5. Upsert conversation
           const { data: existingConv } = await supabase
             .from('conversations')
             .select('id, unread_count')
@@ -248,7 +279,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               .eq('id', convId);
           }
 
-          // 3. Insert message — unique on meta_message_id (dedup)
+          // 6. Insert message (dedup on meta_message_id)
           const { error: msgErr } = await supabase.from('messages').insert({
             conversation_id:   convId,
             role:              'user',

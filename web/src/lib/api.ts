@@ -829,3 +829,25 @@ export const metaApi = {
     return res.json() as Promise<MetaStatusResult>;
   },
 };
+
+// ---------- Workspaces ----------
+
+export interface UpdateMetaCredsInput {
+  metaPhoneNumberId: string;
+  metaWabaId?:       string;
+  metaAccessToken:   string;
+}
+
+export const workspacesApi = {
+  updateMetaCreds: async (input: UpdateMetaCredsInput): Promise<void> => {
+    const res = await fetch('/api/workspaces/meta', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(input),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error ?? 'Failed to save Meta credentials');
+    }
+  },
+};
