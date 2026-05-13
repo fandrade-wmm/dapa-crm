@@ -1,11 +1,10 @@
 # CRM Assistant — Pancho's Business CRM
 
 ## Project
-- Firebase project: `dapa-crm-assistant`
-- Region: `us-central1`
+- Vercel project: `pancho-crm` (team: `team_WB9GZcmZcTYAEKNiDB9teWLO`)
+- Supabase project: `crm-assistant`
+- Region: wherever Supabase project was created
 - Runtime: Node.js 20 (`.nvmrc` → `20`)
-- Cloud Functions: v2 (`firebase-functions`)
-- Firestore: Native mode
 - Package manager: **npm only** — never Yarn, pnpm, or Bun
 - GitHub: `Web-My-Money/crm-assistant`
 
@@ -14,71 +13,92 @@
 - **Styling**: Tailwind CSS + shadcn/ui
 - **Icons**: lucide-react
 - **State**: TanStack Query for server cache
-- **Backend**: Firebase Cloud Functions (TypeScript)
-- **Auth**: Firebase Auth (email/password + roles)
-- **Database**: Firestore
+- **Backend**: Next.js API routes (`web/src/app/api/`)
+- **Auth**: Supabase Auth (email/password, cookie-based sessions via `@supabase/ssr`)
+- **Database**: Supabase (PostgreSQL)
+- **Storage**: Supabase Storage (`media` bucket — images, videos, audio, catalog PDFs)
+- **WhatsApp**: Evolution API (hosted on Railway)
+- **Hosting**: Vercel
+- **i18n**: next-intl (`es`/`en`, default `es`, prefix `as-needed`)
 - **Drag & Drop**: @dnd-kit (for Kanban board)
+- **Forms**: react-hook-form + zod
 
 ## Structure
-- Monorepo: `/web` (Next.js frontend) + `/functions` (Cloud Functions backend)
+- Single Next.js app deployed to Vercel: `/web`
 - `/legacy-replit` — archived original Replit app (reference only, do NOT modify)
-- App routes live in `web/src/app/(dashboard)/`
-- Auth routes live in `web/src/app/(auth)/`
+- Auth routes live in `web/src/app/[locale]/(auth)/`
+- Dashboard routes live in `web/src/app/[locale]/(dashboard)/`
 
 ## Key Routes
 | Route | What it does |
 |-------|-------------|
-| `/dashboard` | Main dashboard with stats |
-| `/conversations` | WhatsApp/Instagram conversations list + detail |
-| `/contacts` | CRM contacts management |
-| `/leads` | Kanban board (nuevos -> proforma -> venta -> completado/perdido) |
+| `/dashboard` | Main dashboard with stats + bot toggle |
+| `/conversations` | WhatsApp/Instagram conversations list |
+| `/conversations/[id]` | Conversation detail + chat interface |
+| `/contacts` | CRM Kanban board (leads) |
+| `/clients` | Contact database (customers) |
 | `/templates` | WhatsApp message templates |
 | `/quick-responses` | Canned response manager |
-| `/automations` | Workflow builder (triggers + actions) |
-| `/team` | User roles and conversation assignment |
-| `/settings` | Bot config, business hours, Odoo integration |
+| `/automations` | Workflow builder |
+| `/team` | User roles and invitations |
+| `/catalogs` | PDF catalog management |
+| `/settings` | Bot config, profile |
+| `/settings/whatsapp` | Evolution API / WhatsApp connection |
 
-## Firestore Collections
-| Collection | Purpose |
-|-----------|---------|
-| `users` | Auth users with roles (admin/superAdmin) |
-| `contacts` | CRM contacts (owner-scoped) |
+## API Routes
+| Route | Purpose |
+|-------|---------|
+| `POST /api/webhooks/evolution` | Receives incoming WhatsApp messages from Evolution API |
+| `POST /api/whatsapp/send` | Sends a message via Evolution API |
+| `GET  /api/whatsapp/status` | Evolution API connection status |
+| `POST /api/team/invite` | Server-side team member invitation (admin only) |
+
+## Supabase Tables
+| Table | Purpose |
+|-------|---------|
+| `profiles` | User profiles (roles: admin/agent, permissions, display_name) |
+| `contacts` | CRM contacts (auto-created from WhatsApp, or manually) |
 | `conversations` | WhatsApp/Instagram threads |
-| `conversations/{id}/messages` | Chat messages per conversation |
-| `leads` | Kanban CRM leads (owner-scoped) |
-| `botConfig` | Bot configuration (admin only) |
-| `botTraining` | Q&A training pairs (admin only) |
-| `templates` | WhatsApp message templates (admin only) |
+| `messages` | Chat messages per conversation |
+| `leads` | Kanban CRM leads |
+| `templates` | WhatsApp message templates |
+| `quick_responses` | Canned replies |
+| `automations` | Workflow definitions |
+| `catalogs` | PDF catalog metadata (file stored in Storage `media` bucket) |
+| `bot_config` | Bot configuration (row id=1) |
+| `_dlq` | Dead-letter queue for failed webhook events |
 
 ## Auth & Roles
-- `superAdmin` — full access, can manage users and delete anything
-- `admin` — can manage settings, templates, bot config, see all data
-- Regular users — can only see/edit their own contacts and leads
+- `admin` — full access, can invite users, manage settings, see all data
+- `agent` — can see conversations, CRM; permissions are per-user toggles
 
 ## Environment Variables
 Copy `web/.env.example` to `web/.env.local` and fill in:
 ```
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=dapa-crm-assistant
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+EVOLUTION_API_URL=
+EVOLUTION_API_KEY=
+EVOLUTION_INSTANCE_NAME=
+EVOLUTION_WEBHOOK_SECRET=
+EVOLUTION_OWNER_ID=
+
+NEXT_PUBLIC_APP_URL=
 ```
 
 ## Running Locally
 ```bash
-# Install deps
-cd web && npm install
-cd ../functions && npm install
-
-# Start dev server
-cd web && npm run dev
+cd web
+npm install
+npm run dev
 ```
 
 ## Naming Conventions
 - Files: `kebab-case`
-- Firestore collections: `camelCase` (existing convention in this repo)
+- Supabase columns: `snake_case`
+- TypeScript interfaces: camelCase properties (mapped from snake_case in `api.ts`)
 - Components: `PascalCase`
 - Env vars: `ALL_CAPS_WITH_UNDERSCORES`
 
@@ -88,82 +108,54 @@ cd web && npm run dev
 - Never modify files in `/legacy-replit` (it's an archive)
 
 ## Ownership
-This is Pancho's personal business CRM. It has its OWN Firebase project (`dapa-crm-assistant`) with its own isolated database. WMM provides standards and tooling, but Pancho owns the code, data, and billing. Pancho has full creative freedom over branding, UI design, and business logic.
+This is Pancho's personal business CRM. It has its OWN Supabase project (`crm-assistant`) with its own isolated database. WMM provides standards and tooling, but Pancho owns the code, data, and billing.
 
 ---
 
 ## WMM Engineering Standards (from wmm-agents)
 
-This app follows the WMM engineering standards maintained in the `wmm-agents` repo. The key standards are summarized below so Claude Code can follow them without needing access to the separate repo.
-
 ### Infrastructure Rules (Non-Negotiable)
 1. **npm only** — Never use Yarn, pnpm, or Bun
-2. **No secrets in code** — Use `process.env` or Firebase `defineSecret()`. Never hardcode API keys, tokens, or passwords. `.env.local` must be in `.gitignore`
-3. **One app = One Firebase project = One isolated database** — This CRM uses `dapa-crm-assistant` only. Never share Firebase projects between apps
-4. **Code in GitHub, Data in Firebase** — `.env.local` connects them, never committed
-5. **Never cancel long-running commands** — `npm install` can take 4-5 min, `npm run build` takes 30-60s
+2. **No secrets in code** — Use `process.env`. Never hardcode API keys, tokens, or passwords
+3. **One app = One Supabase project = One isolated database**
+4. **Never cancel long-running commands** — `npm install` can take 4-5 min
 
-### Firestore Conventions
-- **Schema changes: additive only** — Never remove/rename/change type of a production field without a migration plan
-- Adding a new optional field with a default = OK without migration
-- Renaming a field = dual-write migration (write both old+new, then clean up old)
-- **Timestamps**: Always use `FieldValue.serverTimestamp()` for `createdAt`/`updatedAt`. Never use `new Date()` for Firestore timestamps
-- **Document IDs**: Auto-generated by default. Use business keys only when uniqueness is guaranteed externally
-- **Indexes**: Document all composite indexes in `firestore.indexes.json`
+### Supabase Conventions
+- **Schema changes: additive only** — Never remove/rename/change type of a production column without a migration
+- **Timestamps**: Use `DEFAULT now()` in Supabase; use `new Date().toISOString()` when updating from client
+- **RLS**: Enable Row Level Security on all tables; use `owner_id = auth.uid()` patterns
 
-### Cloud Functions Standards
-- One function per file in `/functions/src/`
-- Use `onRequest` for webhooks, `onCall` for authenticated client calls, `onDocumentCreated` for Firestore triggers
-- **Idempotency**: Every event-driven handler must check for duplicate processing before executing
-- **DLQ pattern**: Failed events go to `_dlq` collection with full context for retry
-- **Error handling**: Always return structured error responses `{ error: 'message' }`
-- **Logging**: Use `logger.info/warn/error` with context objects, not console.log
-- **Cold starts**: Lazy-import large SDKs inside function body, not at top level
-- **CORS**: Never use `cors: true`. Use explicit origin allowlist or `cors: false` for webhooks
-
-### Security Baseline
-- All authenticated routes protected by Firebase Auth middleware
-- Cloud Functions: Use `context.auth`, never trust client-supplied user IDs
-- Admin operations verified via Firebase custom claims
-- All inbound webhooks: verify HMAC signature using `crypto.timingSafeEqual`
-- Input validation: Use zod schemas server-side before saving to Firestore
-- Run `npm audit` on dependency changes
+### API Routes Standards
+- Webhook handlers (`/api/webhooks/*`): Always verify HMAC/secret, return 200 to prevent retries, log errors to `_dlq`
+- Authenticated routes: Always call `supabase.auth.getUser()` server-side, never trust client-supplied user IDs
+- Admin routes: Always verify `role = 'admin'` from `profiles` table before proceeding
 
 ### Frontend Standards (Next.js)
-- App Router (not Pages Router)
+- App Router with `[locale]` prefix (next-intl)
+- **ALL dashboard pages must live in `web/src/app/[locale]/(dashboard)/`** — never in `(dashboard)/` without locale
 - Components: shadcn/ui from `web/src/components/ui/` — don't build custom UI primitives
 - Icons: lucide-react
-- Server Components by default, `"use client"` only when needed (interactivity, hooks, browser APIs)
+- Server Components by default, `"use client"` only when needed
 - Forms: react-hook-form + zod for validation
 - Data fetching: TanStack Query for server state caching
 - TypeScript strict mode — no `any` types without justification
 
-### AI-Generated Code Rules
-- AI must NOT bypass security controls, weaken Firestore rules, skip webhook verification, or hardcode secrets
-- Human review required for: auth/authorization code, payment processing, schema changes, new webhook handlers, security rule changes
-- For AI-generated code blocks >20 lines, add: `// AI-assisted: generated with [tool] + reviewed by [dev]`
+### Security Rules (MANDATORY)
+- NEVER run `git push --force` to any branch
+- NEVER modify Supabase RLS policies without explicit approval
+- NEVER delete database rows — use `status: 'archived'` or `is_active: false` pattern instead
+- NEVER commit .env.local, service account keys, or API tokens to git
+- All webhook handlers must verify the incoming secret before processing
 
 ---
 
 ## Token-Saving Best Practices for Claude Code
 
-These practices keep Claude Code efficient and reduce wasted context:
-
-1. **Read this CLAUDE.md first** — It has everything you need about the project. Don't re-explore what's already documented here
-2. **Don't re-read files you already have in context** — If you just read a file, use what you have
-3. **Batch related changes** — Edit multiple related things in one pass instead of one-at-a-time
-4. **Don't over-explore** — If you need a specific file, use Glob/Grep to find it directly. Don't browse entire directories
-5. **Keep responses concise** — No verbose summaries of what you just did. The diff speaks for itself
+1. **Read this CLAUDE.md first** — It has everything you need. Don't re-explore what's documented here
+2. **Don't re-read files you already have in context** — Use what you have
+3. **Batch related changes** — Edit multiple related things in one pass
+4. **Don't over-explore** — Use Glob/Grep to find files directly
+5. **Keep responses concise** — The diff speaks for itself
 6. **Run typecheck once** before committing, not after every edit
-7. **Don't add unnecessary comments, docstrings, or type annotations** to code you didn't change
-8. **Don't refactor or "improve" code beyond what was asked** — Stay on task
-
-## Security Rules (MANDATORY)
-- NEVER run `firebase deploy` from Claude Code — all deploys go through GitHub CI
-- NEVER run `git push --force` or `git push --force-with-lease` to any branch
-- NEVER modify firestore.rules without explicit approval from admin@webmymoney.com or fran@webmymoney.com
-- NEVER modify apphosting.yaml or apphosting.prod.yaml secrets
-- NEVER delete Firestore documents — use status:archived pattern instead
-- NEVER commit .env.local, service account keys, or API tokens to git
-- NEVER modify branch protection rules or GitHub settings
-- All security rule changes require review by Fran (fran@webmymoney.com) or Admin (admin@webmymoney.com)
+7. **Don't add unnecessary comments** to code you didn't change
+8. **Don't refactor beyond what was asked** — Stay on task

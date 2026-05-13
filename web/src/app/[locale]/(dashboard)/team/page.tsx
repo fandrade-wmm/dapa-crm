@@ -183,7 +183,7 @@ export default function TeamPage() {
             )}
 
             {members.map((m) => {
-              const isCurrentUser = m.id === currentUser?.uid;
+              const isCurrentUser = m.id === currentUser?.id;
               return (
                 <motion.div
                   key={m.id}

@@ -459,8 +459,32 @@ export const teamApi = {
       createdAt: r.created_at,
     }));
   },
-  invite: async (_input: InviteTeamMemberInput): Promise<TeamMember & { inviteLink: string }> => {
-    throw new Error('Team invitations require server-side implementation');
+  invite: async (input: InviteTeamMemberInput): Promise<TeamMember & { inviteLink: string }> => {
+    const res = await fetch('/api/team/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const json = await res.json() as { ok?: boolean; inviteLink?: string; error?: string };
+    if (!res.ok || !json.ok) throw new Error(json.error ?? 'Failed to invite member');
+    // Return a partial TeamMember — the full row is fetched on next team query
+    return {
+      id: '',
+      email: input.email,
+      displayName: input.displayName,
+      role: input.role,
+      permissions: {
+        conversations: true,
+        crm: false,
+        automations: false,
+        quickResponses: true,
+        settings: false,
+        ...input.permissions,
+      },
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      inviteLink: json.inviteLink!,
+    };
   },
   update: async (input: UpdateTeamMemberInput): Promise<TeamMember> => {
     const supabase = createClient();
@@ -700,11 +724,62 @@ export type CreateCatalogInput = Pick<Catalog, 'name' | 'fileUrl' | 'fileName'> 
   description?: string;
 };
 
+function mapCatalog(r: Record<string, unknown>): Catalog {
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    description: (r.description as string) ?? null,
+    fileUrl: r.file_url as string,
+    fileName: r.file_name as string,
+    ownerId: r.owner_id as string,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  };
+}
+
 export const catalogsApi = {
-  getAll: async (): Promise<Catalog[]> => { return []; },
-  create: async (_input: CreateCatalogInput): Promise<Catalog> => { throw new Error('Catalog upload requires storage configuration'); },
-  update: async (_id: string, _updates: { name?: string; description?: string | null }): Promise<Catalog> => { throw new Error('Not implemented'); },
-  delete: async (_id: string): Promise<void> => { throw new Error('Not implemented'); },
+  getAll: async (): Promise<Catalog[]> => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('catalogs')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((r) => mapCatalog(r as Record<string, unknown>));
+  },
+  create: async (input: CreateCatalogInput): Promise<Catalog> => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('catalogs')
+      .insert({
+        name: input.name,
+        description: input.description ?? null,
+        file_url: input.fileUrl,
+        file_name: input.fileName,
+        owner_id: user!.id,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return mapCatalog(data as Record<string, unknown>);
+  },
+  update: async (id: string, updates: { name?: string; description?: string | null }): Promise<Catalog> => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('catalogs')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return mapCatalog(data as Record<string, unknown>);
+  },
+  delete: async (id: string): Promise<void> => {
+    const supabase = createClient();
+    const { error } = await supabase.from('catalogs').delete().eq('id', id);
+    if (error) throw error;
+  },
 };
 
 // ---------- Send Media ----------

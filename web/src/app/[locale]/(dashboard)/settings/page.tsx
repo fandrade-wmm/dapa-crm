@@ -13,7 +13,7 @@ import { statsApi } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [botSaved, setBotSaved] = useState(false);
 
@@ -54,7 +54,7 @@ export default function SettingsPage() {
             <Label htmlFor="display-name">Nombre</Label>
             <Input
               id="display-name"
-              value={user?.displayName ?? ''}
+              value={profile?.displayName ?? ''}
               readOnly
               className="mt-1 bg-muted cursor-not-allowed"
             />
@@ -70,8 +70,8 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center gap-2">
             <Label>Rol</Label>
-            <Badge variant={user?.role === 'admin' ? 'default' : 'secondary'} className="capitalize">
-              {user?.role ?? 'agente'}
+            <Badge variant={profile?.role === 'admin' ? 'default' : 'secondary'} className="capitalize">
+              {profile?.role ?? 'agente'}
             </Badge>
           </div>
         </CardContent>

@@ -194,7 +194,7 @@ export default function ConversationsPage() {
     .filter((c) => !onlyUnread || (c.unreadCount ?? 0) > 0)
     .filter((c) => {
       if (assignedFilter === 'all') return true;
-      if (assignedFilter === 'me') return c.assignedTo === user?.uid;
+      if (assignedFilter === 'me') return c.assignedTo === user?.id;
       if (assignedFilter === 'unassigned') return !c.assignedTo;
       return c.assignedTo === assignedFilter;
     });
